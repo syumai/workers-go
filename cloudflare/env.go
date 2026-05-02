@@ -10,7 +10,10 @@ import (
 //   - https://developers.cloudflare.com/workers/platform/environment-variables/
 //   - This function panics when a runtime context is not found.
 func Getenv(name string) string {
-	return cfruntimecontext.MustGetRuntimeContextEnv().Get(name).String()
+	if val := cfruntimecontext.MustGetRuntimeContextEnv().Get(name); !val.IsUndefined() {
+		return val.String()
+	}
+	return ""
 }
 
 // GetBinding gets a value of an environment binding.
