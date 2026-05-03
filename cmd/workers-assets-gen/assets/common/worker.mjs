@@ -3,6 +3,7 @@ import { createRuntimeContext, loadModule } from "./runtime.mjs";
 
 let mod;
 
+globalThis.fetch = globalThis.fetch.bind(globalThis);
 globalThis.tryCatch = (fn) => {
   try {
     return {
