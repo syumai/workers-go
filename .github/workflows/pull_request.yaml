@@ -68,11 +68,11 @@ jobs:
         run: |
           set -e
           git worktree add /tmp/base "origin/${{ github.base_ref }}"
-          (cd /tmp/base && go run ./internal/cmd/genforward -out /tmp/mirror-base -version v0.0.0-base -replace /tmp/base)
+          /tmp/base/scripts/genforward.sh -out /tmp/mirror-base -version v0.0.0-base -replace /tmp/base
 
       - name: Generate mirror forwarders from PR head
         run: |
-          go run ./internal/cmd/genforward -out /tmp/mirror-head -version v0.0.0-head -replace "$GITHUB_WORKSPACE"
+          ./scripts/genforward.sh -out /tmp/mirror-head -version v0.0.0-head -replace "$GITHUB_WORKSPACE"
 
       - name: go mod tidy (generated mirror, head)
         working-directory: /tmp/mirror-head
