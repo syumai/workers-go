@@ -1,7 +1,7 @@
 # worker-template-tinygo
 
 - A template for starting a Cloudflare Worker project with tinygo.
-- This template uses [`workers`](https://github.com/syumai/workers-go) package to run an HTTP server.
+- This template uses [`workers-go`](https://github.com/syumai/workers-go) package to run an HTTP server.
 
 ## Usage
 

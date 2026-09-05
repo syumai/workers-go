@@ -2,7 +2,7 @@
 
 - A template for starting a browser-based HTTP server with Go.
   - This template uses Cloudflare Workers to just serve a static page.
-- This template uses [`workers`](https://github.com/syumai/workers-go) package to run an HTTP server.
+- This template uses [`workers-go`](https://github.com/syumai/workers-go) package to run an HTTP server.
 
 ## Usage
 

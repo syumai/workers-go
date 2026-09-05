@@ -29,13 +29,13 @@ will be overwritten by the next sync. File issues and pull requests against
 Update your import paths from `github.com/syumai/workers` to `github.com/syumai/workers-go`:
 
 ```sh
-sed -i 's|github.com/syumai/workers|github.com/syumai/workers-go|g' $(grep -rl 'github.com/syumai/workers' --include='*.go' .)
+sed -i 's|github.com/syumai/workers\([/" ]\)|github.com/syumai/workers-go\1|g' $(grep -rl 'github.com/syumai/workers' --include='*.go' --include='go.mod' .)
 ```
 
 On macOS, `sed -i` requires an explicit (possibly empty) backup suffix argument:
 
 ```sh
-sed -i '' 's|github.com/syumai/workers|github.com/syumai/workers-go|g' $(grep -rl 'github.com/syumai/workers' --include='*.go' .)
+sed -i '' 's|github.com/syumai/workers\([/" ]\)|github.com/syumai/workers-go\1|g' $(grep -rl 'github.com/syumai/workers' --include='*.go' --include='go.mod' .)
 ```
 
 Then update `go.mod`/`go.sum`:
