@@ -101,20 +101,30 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # proxy.golang.org fetches a version from origin the first time it is
+      # asked for it, and caches a "not found" answer for a while if that
+      # first request races the tag push. So: first make sure the tag is
+      # visible on GitHub at all, then poll the proxy for up to 30 minutes,
+      # printing the actual error so a stuck run can be diagnosed.
       - name: Wait for the tag to be resolvable via the Go module proxy
         if: steps.sync_target.outputs.tag != '' && inputs.dry_run != true
         env:
           TAG: ${{ steps.sync_target.outputs.tag }}
         run: |
-          for i in $(seq 1 60); do
-            if GOPROXY=https://proxy.golang.org GOFLAGS=-mod=mod go list -m "github.com/syumai/workers-go@${TAG}" >/dev/null 2>&1; then
-              echo "github.com/syumai/workers-go@${TAG} is resolvable."
+          if [ -z "$(git ls-remote --tags origin "refs/tags/${TAG}")" ]; then
+            echo "::error::Tag ${TAG} does not exist on ${{ github.repository }}."
+            exit 1
+          fi
+          echo "Tag ${TAG} is visible on GitHub."
+          for i in $(seq 1 180); do
+            if out=$(GOPROXY=https://proxy.golang.org GOFLAGS=-mod=mod go list -m "github.com/syumai/workers-go@${TAG}" 2>&1); then
+              echo "github.com/syumai/workers-go@${TAG} is resolvable: ${out}"
               exit 0
             fi
-            echo "Waiting for github.com/syumai/workers-go@${TAG} to be resolvable via proxy.golang.org (attempt $i/60)..."
+            echo "attempt $i/180: ${out##*$'\n'}"
             sleep 10
           done
-          echo "::error::github.com/syumai/workers-go@${TAG} did not become resolvable within 10 minutes."
+          echo "::error::github.com/syumai/workers-go@${TAG} did not become resolvable via proxy.golang.org within 30 minutes."
           exit 1
 
       # The mirror is pushed to directly (git over SSH), not through the
