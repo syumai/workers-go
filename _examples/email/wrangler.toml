@@ -1,0 +1,17 @@
+name = "email"
+main = "./build/worker.mjs"
+compatibility_date = "2025-12-02"
+
+[build]
+command = "make build"
+
+[[send_email]]
+name = "EMAIL"
+
+[vars]
+# This is the email address that is allowed to receive emails sent as net-new or forwarded emails from Cloudflare
+VERIFIED_DESTINATION_ADDRESS = "my-verified-personal-address@gmail.com"
+
+# Used for generating Message-ID headers and 'from' address. This should be the domain you have
+# configured in Cloudflare for email forwarding, ideally a TLD and not a subdomain
+EMAIL_DOMAIN = "@mydomain.com"
