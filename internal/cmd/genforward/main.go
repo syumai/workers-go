@@ -12,6 +12,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type config struct {
@@ -76,6 +77,10 @@ func run(cfg *config) error {
 		}
 	}
 
+	if err := checkOutDirSafety(outAbs, srcAbs, staticAbs); err != nil {
+		return err
+	}
+
 	srcMod, err := readModule(srcAbs)
 	if err != nil {
 		return fmt.Errorf("reading source go.mod: %w", err)
@@ -112,4 +117,71 @@ func run(cfg *config) error {
 	fmt.Fprintf(os.Stderr, "  (cd %s && go mod tidy)\n", outAbs)
 
 	return nil
+}
+
+// checkOutDirSafety refuses to proceed when outAbs (which resetOutDir is
+// about to wipe) has an unsafe relationship to srcAbs or staticAbs: being
+// the same directory, an ancestor, or nested inside one of them. Without
+// this check, a relative -out given by a caller whose working directory
+// happens to coincide with (or sit inside/above) -src or -static can cause
+// resetOutDir to delete files it must never touch.
+//
+// Paths are resolved through any symlinks (where possible; a path that does
+// not exist yet, such as -out, is resolved up to its longest existing
+// ancestor) before comparison, since on macOS in particular a temp directory
+// is commonly reached through a symlink (e.g. /tmp -> /private/tmp), which
+// would otherwise defeat a purely lexical comparison.
+func checkOutDirSafety(outAbs, srcAbs, staticAbs string) error {
+	outR := resolveSymlinks(outAbs)
+	srcR := resolveSymlinks(srcAbs)
+
+	switch {
+	case outR == srcR:
+		return fmt.Errorf("-out (%s) must not be the same directory as -src (%s): it would be wiped before generation, deleting the source module", outAbs, srcAbs)
+	case pathContains(outR, srcR):
+		return fmt.Errorf("-out (%s) must not be an ancestor of -src (%s): it would be wiped before generation, deleting the source module", outAbs, srcAbs)
+	case pathContains(srcR, outR):
+		return fmt.Errorf("-out (%s) must not be inside -src (%s): it would be wiped before generation, deleting part of the source module", outAbs, srcAbs)
+	}
+
+	if staticAbs != "" {
+		staticR := resolveSymlinks(staticAbs)
+		switch {
+		case outR == staticR:
+			return fmt.Errorf("-out (%s) must not be the same directory as -static (%s): it would be wiped before generation, deleting the static files", outAbs, staticAbs)
+		case pathContains(outR, staticR):
+			return fmt.Errorf("-out (%s) must not contain -static (%s): it would be wiped before generation, deleting the static files", outAbs, staticAbs)
+		}
+	}
+
+	return nil
+}
+
+// pathContains reports whether child is strictly inside parent (not equal to
+// it). Both arguments must already be absolute, symlink-resolved paths.
+func pathContains(parent, child string) bool {
+	rel, err := filepath.Rel(parent, child)
+	if err != nil {
+		return false
+	}
+	if rel == "." {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// resolveSymlinks resolves symlinks in path, walking up to the longest
+// existing ancestor when path itself does not exist yet (as is normal for
+// -out, which genforward is about to create). path must be absolute.
+func resolveSymlinks(path string) string {
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		return resolved
+	}
+	parent := filepath.Dir(path)
+	if parent == path {
+		// Reached the filesystem root without finding an existing
+		// ancestor; nothing more we can resolve.
+		return path
+	}
+	return filepath.Join(resolveSymlinks(parent), filepath.Base(path))
 }
