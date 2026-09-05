@@ -1,7 +1,7 @@
 # worker-template-go
 
 - A template for starting a Cloudflare Worker project with Go.
-- This template uses [`workers`](https://github.com/syumai/workers-go) package to run an HTTP server.
+- This template uses [`workers-go`](https://github.com/syumai/workers-go) package to run an HTTP server.
 
 ## Notice
 

@@ -1,9 +1,9 @@
-# workers
+# workers-go
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/syumai/workers-go.svg)](https://pkg.go.dev/github.com/syumai/workers-go)
 [![Discord Server](https://img.shields.io/discord/1095344956421447741?logo=discord&style=social)](https://discord.gg/tYhtatRqGs)
 
-* `workers` is a package to run an HTTP server written in Go on [Cloudflare Workers](https://workers.cloudflare.com/).
+* `workers-go` is a Go module to run an HTTP server written in Go on [Cloudflare Workers](https://workers.cloudflare.com/). Its root package is `workers`.
 * This package can easily serve *http.Handler* on Cloudflare Workers.
 * Caution: This is an experimental project.
 
@@ -39,6 +39,18 @@
 
 ```
 go get github.com/syumai/workers-go
+```
+
+### Migrating from `github.com/syumai/workers`
+
+This module was published as `github.com/syumai/workers` up to v0.34.0 and was renamed to `github.com/syumai/workers-go` in v0.35.0 ([#173](https://github.com/syumai/workers-go/issues/173)). The old path still works: it is now a thin forwarding module that re-exports this module's API and follows its releases for a transition period, but it is marked deprecated. To switch, rewrite the import paths and tidy:
+
+```
+# Linux
+find . \( -name '*.go' -o -name go.mod \) -exec sed -i 's|github.com/syumai/workers|github.com/syumai/workers-go|g' {} +
+# macOS
+find . \( -name '*.go' -o -name go.mod \) -exec sed -i '' 's|github.com/syumai/workers|github.com/syumai/workers-go|g' {} +
+go mod tidy
 ```
 
 ## Usage

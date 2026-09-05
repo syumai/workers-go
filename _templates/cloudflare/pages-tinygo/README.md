@@ -1,7 +1,7 @@
 # pages-tinygo
 
 - A template for starting a Cloudflare Pages Functions project with tinygo.
-- This template uses the [`workers`](https://github.com/syumai/workers-go) package to run.
+- This template uses the [`workers-go`](https://github.com/syumai/workers-go) package to run.
 
 ## Usage
 
