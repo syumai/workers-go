@@ -1,0 +1,14 @@
+{
+	"name": "workers-ai-example",
+	"version": "0.0.0",
+	"private": true,
+	"scripts": {
+		"build": "go run github.com/syumai/workers/cmd/workers-assets-gen -mode=go && GOOS=js GOARCH=wasm go build -o ./build/app.wasm .",
+		"deploy": "wrangler deploy",
+		"dev": "wrangler dev",
+		"start": "wrangler dev"
+	},
+	"devDependencies": {
+		"wrangler": "^4.7.2"
+	}
+}
