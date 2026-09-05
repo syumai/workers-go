@@ -16,40 +16,34 @@
 ## Requirements
 
 - Node.js
-- [wrangler](https://developers.cloudflare.com/workers/wrangler/)
-  - Just run `npm install -g wrangler`
-- Go 1.21.0 or later
 - TinyGo 0.42.0 or later
   - TinyGo 0.41.x cannot build `net/http` for Wasm (see [tinygo-org/tinygo#5350](https://github.com/tinygo-org/tinygo/issues/5350)).
 
 ## Getting Started
 
-- If not already installed, please install the [gonew](https://pkg.go.dev/golang.org/x/tools/cmd/gonew) command.
+- Create a new worker project using this template.
 
 ```console
-go install golang.org/x/tools/cmd/gonew@latest
+npm create cloudflare@latest -- --template github.com/syumai/workers-go/_templates/cloudflare/cron-tinygo
 ```
 
-- Create a new project using this template.
-  - The second argument passed to `gonew` is the module path of your new app.
+- Initialize a project.
 
 ```console
-gonew github.com/syumai/workers-go/_templates/cloudflare/cron-tinygo your.module/my-app # e.g. github.com/syumai/my-app
 cd my-app
+go mod init your.module/my-app # e.g. github.com/syumai/my-app
 go mod tidy
-make dev # start running dev server
+npm start # start running dev server
 ```
-
-- To change the worker name, please edit the `name` property in `wrangler.toml`.
 
 ## Development
 
 ### Commands
 
-```console
-make dev     # run dev server
-make build   # build Go Wasm binary
-make deploy  # deploy worker
+```
+npm start      # run dev server
+npm run build  # build Go Wasm binary
+npm run deploy # deploy worker
 ```
 
 ### Testing the Dev Server

@@ -25,7 +25,7 @@ npm create cloudflare@latest -- --template github.com/syumai/workers-go/_templat
 
 ```console
 cd my-app # A directory of the project created by the above command
-go mod init
+go mod init your.module/my-app # e.g. github.com/syumai/my-app
 go mod tidy
 npm start # start running dev server
 curl http://localhost:8787/hello # outputs "Hello!"

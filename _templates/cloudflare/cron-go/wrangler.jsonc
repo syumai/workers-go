@@ -1,0 +1,12 @@
+{
+  "name": "<TBD>",
+  "main": "./build/worker.mjs",
+  "compatibility_date": "<TBD>",
+  "workers_dev": false,
+  "build": {
+    "command": "npm run build"
+  },
+  "triggers": {
+    "crons": ["* * * * *"]
+  }
+}
