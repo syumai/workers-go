@@ -144,6 +144,23 @@ jobs:
         if: steps.sync_target.outputs.tag != ''
         run: git clone "git@github.com:${MIRROR_REPO}.git" ../mirror
 
+      # Never rewrite a tag that's already published: doing so breaks
+      # sum.golang.org checksums for everyone who already fetched it. Check
+      # this first, before generating or pushing anything, so a rejected
+      # re-sync leaves the mirror completely untouched. If TAG already
+      # exists on the mirror, the fix is a new workers-go patch release.
+      - name: Refuse to re-sync a tag the mirror already has
+        if: steps.sync_target.outputs.tag != ''
+        working-directory: ../mirror
+        env:
+          TAG: ${{ steps.sync_target.outputs.tag }}
+        run: |
+          if [ -n "$(git ls-remote --tags origin "refs/tags/${TAG}")" ]; then
+            echo "::error::Tag ${TAG} already exists on the mirror (${MIRROR_REPO}). Rewriting a published tag would break sum.golang.org checksums for anyone who already fetched it. Cut a new workers-go patch release instead."
+            exit 1
+          fi
+          echo "Tag ${TAG} does not exist on the mirror yet."
+
       - name: Generate forwarders from this tag
         if: steps.sync_target.outputs.tag != ''
         env:
@@ -273,14 +290,7 @@ jobs:
           fi
           # Creates `main` on a brand-new/empty mirror repository too.
           git push origin HEAD:main
-
-          # Never rewrite a tag that's already published: doing so breaks
-          # sum.golang.org checksums for everyone who already fetched it.
-          # If TAG already exists on the mirror, the fix is a new
-          # workers-go patch release, not force-pushing over this one.
-          if [ -n "$(git ls-remote --tags origin "refs/tags/${TAG}")" ]; then
-            echo "::error::Tag ${TAG} already exists on the mirror (${MIRROR_REPO}). Rewriting a published tag would break sum.golang.org checksums for anyone who already fetched it. Cut a new workers-go patch release instead."
-            exit 1
-          fi
+          # The tag was verified to be absent right after cloning; never
+          # use -f / --force here.
           git tag "${TAG}"
           git push origin "${TAG}"
