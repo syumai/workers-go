@@ -47,9 +47,9 @@ This module was published as `github.com/syumai/workers` up to v0.34.0 and was r
 
 ```
 # Linux
-find . \( -name '*.go' -o -name go.mod \) -exec sed -i 's|github.com/syumai/workers|github.com/syumai/workers-go|g' {} +
+find . \( -name '*.go' -o -name go.mod \) -exec sed -i 's|github.com/syumai/workers\([/" ]\)|github.com/syumai/workers-go\1|g' {} +
 # macOS
-find . \( -name '*.go' -o -name go.mod \) -exec sed -i '' 's|github.com/syumai/workers|github.com/syumai/workers-go|g' {} +
+find . \( -name '*.go' -o -name go.mod \) -exec sed -i '' 's|github.com/syumai/workers\([/" ]\)|github.com/syumai/workers-go\1|g' {} +
 go mod tidy
 ```
 
