@@ -131,6 +131,8 @@ The [worker-go template](https://github.com/syumai/workers-go/tree/main/_templat
 
 But Go (not TinyGo) with many dependencies may exceed the size limit of the Worker (3MB for free plan, 10MB for paid plan). In that case, you can use the [TinyGo template](https://github.com/syumai/workers-go/tree/main/_templates/cloudflare/worker-tinygo) instead.
 
+The TinyGo template requires TinyGo 0.42.0 or later. TinyGo 0.41.x cannot build `net/http` for Wasm (see [tinygo-org/tinygo#5350](https://github.com/tinygo-org/tinygo/issues/5350)).
+
 ### Where can I have discussions about contributions, or ask questions about how to use the library?
 
 You can do both through GitHub Issues. If you want to have a more casual conversation, please use the [Discord server](https://discord.gg/tYhtatRqGs).

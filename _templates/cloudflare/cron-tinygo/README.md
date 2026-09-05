@@ -19,6 +19,8 @@
 - [wrangler](https://developers.cloudflare.com/workers/wrangler/)
   - Just run `npm install -g wrangler`
 - Go 1.21.0 or later
+- TinyGo 0.42.0 or later
+  - TinyGo 0.41.x cannot build `net/http` for Wasm (see [tinygo-org/tinygo#5350](https://github.com/tinygo-org/tinygo/issues/5350)).
 
 ## Getting Started
 
@@ -32,7 +34,7 @@ go install golang.org/x/tools/cmd/gonew@latest
   - The second argument passed to `gonew` is the module path of your new app.
 
 ```console
-gonew github.com/syumai/workers-go/_templates/cloudflare/cron-go your.module/my-app # e.g. github.com/syumai/my-app
+gonew github.com/syumai/workers-go/_templates/cloudflare/cron-tinygo your.module/my-app # e.g. github.com/syumai/my-app
 cd my-app
 go mod tidy
 make dev # start running dev server

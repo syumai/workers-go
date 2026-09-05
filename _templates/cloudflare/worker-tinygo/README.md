@@ -10,7 +10,8 @@
 ## Requirements
 
 - Node.js
-- tinygo 0.35.0 or later
+- TinyGo 0.42.0 or later
+  - TinyGo 0.41.x cannot build `net/http` for Wasm (see [tinygo-org/tinygo#5350](https://github.com/tinygo-org/tinygo/issues/5350)).
 
 ## Getting Started
 

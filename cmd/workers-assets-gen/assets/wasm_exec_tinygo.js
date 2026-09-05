@@ -3,55 +3,25 @@
 // license that can be found in the LICENSE file.
 //
 // This file has been modified for use by the TinyGo compiler.
+"use strict";
 
 (() => {
-	// Map multiple JavaScript environments to a single common API,
-	// preferring web standards over Node.js API.
-	//
-	// Environments considered:
-	// - Browsers
-	// - Node.js
-	// - Electron
-	// - Parcel
-
-	if (typeof global !== "undefined") {
-		// global already exists
-	} else if (typeof window !== "undefined") {
-		window.global = window;
-	} else if (typeof self !== "undefined") {
-		self.global = self;
-	} else {
-		throw new Error("cannot export Go (neither global, window nor self is defined)");
-	}
-
-	/*
-	if (!global.require && typeof require !== "undefined") {
-		global.require = require;
-	}
-	*/
-
-	/*
-	if (!global.fs && global.require) {
-		global.fs = require("node:fs");
-	}
-	*/
-
 	const enosys = () => {
 		const err = new Error("not implemented");
 		err.code = "ENOSYS";
 		return err;
 	};
 
-	if (!global.fs) {
+	if (!globalThis.fs) {
 		let outputBuf = "";
-		global.fs = {
-			constants: { O_WRONLY: -1, O_RDWR: -1, O_CREAT: -1, O_TRUNC: -1, O_APPEND: -1, O_EXCL: -1 }, // unused
+		globalThis.fs = {
+			constants: { O_WRONLY: -1, O_RDWR: -1, O_CREAT: -1, O_TRUNC: -1, O_APPEND: -1, O_EXCL: -1, O_DIRECTORY: -1 }, // unused
 			writeSync(fd, buf) {
 				outputBuf += decoder.decode(buf);
 				const nl = outputBuf.lastIndexOf("\n");
 				if (nl != -1) {
-					console.log(outputBuf.substr(0, nl));
-					outputBuf = outputBuf.substr(nl + 1);
+					console.log(outputBuf.substring(0, nl));
+					outputBuf = outputBuf.substring(nl + 1);
 				}
 				return buf.length;
 			},
@@ -89,8 +59,8 @@
 		};
 	}
 
-	if (!global.process) {
-		global.process = {
+	if (!globalThis.process) {
+		globalThis.process = {
 			getuid() { return -1; },
 			getgid() { return -1; },
 			geteuid() { return -1; },
@@ -104,37 +74,21 @@
 		}
 	}
 
-	/*
-	if (!global.crypto) {
-		const nodeCrypto = require("node:crypto");
-		global.crypto = {
-			getRandomValues(b) {
-				nodeCrypto.randomFillSync(b);
-			},
-		};
-	}
-	*/
-
-	if (!global.performance) {
-		global.performance = {
-			now() {
-				const [sec, nsec] = process.hrtime();
-				return sec * 1000 + nsec / 1000000;
-			},
-		};
+	if (!globalThis.crypto) {
+		throw new Error("globalThis.crypto is not available, polyfill required (crypto.getRandomValues only)");
 	}
 
-	/*
-	if (!global.TextEncoder) {
-		global.TextEncoder = require("node:util").TextEncoder;
+	if (!globalThis.performance) {
+		throw new Error("globalThis.performance is not available, polyfill required (performance.now only)");
 	}
 
-	if (!global.TextDecoder) {
-		global.TextDecoder = require("node:util").TextDecoder;
+	if (!globalThis.TextEncoder) {
+		throw new Error("globalThis.TextEncoder is not available, polyfill required");
 	}
-	*/
 
-	// End of polyfills for common API.
+	if (!globalThis.TextDecoder) {
+		throw new Error("globalThis.TextDecoder is not available, polyfill required");
+	}
 
 	const encoder = new TextEncoder("utf-8");
 	const decoder = new TextDecoder("utf-8");
@@ -142,7 +96,7 @@
 	var logLine = [];
 	const wasmExit = {}; // thrown to exit via proc_exit (not an error)
 
-	global.Go = class {
+	globalThis.Go = class {
 		constructor() {
 			this._callbackTimeouts = new Map();
 			this._nextCallbackTimeoutID = 1;
@@ -251,15 +205,18 @@
 				wasi_snapshot_preview1: {
 					// https://github.com/WebAssembly/WASI/blob/snapshot-01/phases/snapshot/docs.md
 					fd_write: function(fd, iovs_ptr, iovs_len, nwritten_ptr) {
+						iovs_ptr >>>= 0;
+						iovs_len >>>= 0;
+						nwritten_ptr >>>= 0;
 						let nwritten = 0;
 						if (fd == 1) {
-							for (let iovs_i=0; iovs_i<iovs_len;iovs_i++) {
-								let iov_ptr = iovs_ptr+iovs_i*8; // assuming wasm32
+							for (let iovs_i = 0; iovs_i < iovs_len; iovs_i++) {
+								let iov_ptr = iovs_ptr + iovs_i * 8; // assuming wasm32
 								let ptr = mem().getUint32(iov_ptr + 0, true);
 								let len = mem().getUint32(iov_ptr + 4, true);
 								nwritten += len;
-								for (let i=0; i<len; i++) {
-									let c = mem().getUint8(ptr+i);
+								for (let i = 0; i < len; i++) {
+									let c = mem().getUint8(ptr + i);
 									if (c == 13) { // CR
 										// ignore
 									} else if (c == 10) { // LF
@@ -292,6 +249,8 @@
 						throw wasmExit;
 					},
 					random_get: (bufPtr, bufLen) => {
+						bufPtr >>>= 0;
+						bufLen >>>= 0;
 						crypto.getRandomValues(loadSlice(bufPtr, bufLen));
 						return 0;
 					},
@@ -304,6 +263,8 @@
 
 					// func getRandomData(r []byte)
 					"runtime.getRandomData": (slice_ptr, slice_len, slice_cap) => {
+						slice_ptr >>>= 0;
+						slice_len >>>= 0;
 						crypto.getRandomValues(loadSlice(slice_ptr, slice_len, slice_cap));
 					},
 
@@ -317,7 +278,7 @@
 							} catch (e) {
 								if (e !== wasmExit) throw e;
 							}
-						}, Number(timeout)/1e6);
+						}, Number(timeout) / 1e6);
 					},
 
 					// func finalizeRef(v ref)
@@ -341,12 +302,15 @@
 					// func stringVal(value string) ref
 					"syscall/js.stringVal": (value_ptr, value_len) => {
 						value_ptr >>>= 0;
+						value_len >>>= 0;
 						const s = loadString(value_ptr, value_len);
 						return boxValue(s);
 					},
 
 					// func valueGet(v ref, p string) ref
 					"syscall/js.valueGet": (v_ref, p_ptr, p_len) => {
+						p_ptr >>>= 0;
+						p_len >>>= 0;
 						let prop = loadString(p_ptr, p_len);
 						let v = unboxValue(v_ref);
 						let result = Reflect.get(v, prop);
@@ -355,6 +319,8 @@
 
 					// func valueSet(v ref, p string, x ref)
 					"syscall/js.valueSet": (v_ref, p_ptr, p_len, x_ref) => {
+						p_ptr >>>= 0;
+						p_len >>>= 0;
 						const v = unboxValue(v_ref);
 						const p = loadString(p_ptr, p_len);
 						const x = unboxValue(x_ref);
@@ -363,6 +329,8 @@
 
 					// func valueDelete(v ref, p string)
 					"syscall/js.valueDelete": (v_ref, p_ptr, p_len) => {
+						p_ptr >>>= 0;
+						p_len >>>= 0;
 						const v = unboxValue(v_ref);
 						const p = loadString(p_ptr, p_len);
 						Reflect.deleteProperty(v, p);
@@ -380,6 +348,11 @@
 
 					// func valueCall(v ref, m string, args []ref) (ref, bool)
 					"syscall/js.valueCall": (ret_addr, v_ref, m_ptr, m_len, args_ptr, args_len, args_cap) => {
+						ret_addr >>>= 0;
+						m_ptr >>>= 0;
+						m_len >>>= 0;
+						args_ptr >>>= 0;
+						args_len >>>= 0;
 						const v = unboxValue(v_ref);
 						const name = loadString(m_ptr, m_len);
 						const args = loadSliceOfValues(args_ptr, args_len, args_cap);
@@ -395,6 +368,9 @@
 
 					// func valueInvoke(v ref, args []ref) (ref, bool)
 					"syscall/js.valueInvoke": (ret_addr, v_ref, args_ptr, args_len, args_cap) => {
+						ret_addr >>>= 0;
+						args_ptr >>>= 0;
+						args_len >>>= 0;
 						try {
 							const v = unboxValue(v_ref);
 							const args = loadSliceOfValues(args_ptr, args_len, args_cap);
@@ -408,6 +384,9 @@
 
 					// func valueNew(v ref, args []ref) (ref, bool)
 					"syscall/js.valueNew": (ret_addr, v_ref, args_ptr, args_len, args_cap) => {
+						ret_addr >>>= 0;
+						args_ptr >>>= 0;
+						args_len >>>= 0;
 						const v = unboxValue(v_ref);
 						const args = loadSliceOfValues(args_ptr, args_len, args_cap);
 						try {
@@ -415,7 +394,7 @@
 							mem().setUint8(ret_addr + 8, 1);
 						} catch (err) {
 							storeValue(ret_addr, err);
-							mem().setUint8(ret_addr+ 8, 0);
+							mem().setUint8(ret_addr + 8, 0);
 						}
 					},
 
@@ -426,6 +405,7 @@
 
 					// valuePrepareString(v ref) (ref, int)
 					"syscall/js.valuePrepareString": (ret_addr, v_ref) => {
+						ret_addr >>>= 0;
 						const s = String(unboxValue(v_ref));
 						const str = encoder.encode(s);
 						storeValue(ret_addr, str);
@@ -434,17 +414,22 @@
 
 					// valueLoadString(v ref, b []byte)
 					"syscall/js.valueLoadString": (v_ref, slice_ptr, slice_len, slice_cap) => {
+						slice_ptr >>>= 0;
+						slice_len >>>= 0;
 						const str = unboxValue(v_ref);
 						loadSlice(slice_ptr, slice_len, slice_cap).set(str);
 					},
 
 					// func valueInstanceOf(v ref, t ref) bool
 					"syscall/js.valueInstanceOf": (v_ref, t_ref) => {
- 						return unboxValue(v_ref) instanceof unboxValue(t_ref);
+						return unboxValue(v_ref) instanceof unboxValue(t_ref);
 					},
 
 					// func copyBytesToGo(dst []byte, src ref) (int, bool)
 					"syscall/js.copyBytesToGo": (ret_addr, dest_addr, dest_len, dest_cap, src_ref) => {
+						ret_addr >>>= 0;
+						dest_addr >>>= 0;
+						dest_len >>>= 0;
 						let num_bytes_copied_addr = ret_addr;
 						let returned_status_addr = ret_addr + 4; // Address of returned boolean status variable
 
@@ -464,6 +449,9 @@
 					// Originally copied from upstream Go project, then modified:
 					//   https://github.com/golang/go/blob/3f995c3f3b43033013013e6c7ccc93a9b1411ca9/misc/wasm/wasm_exec.js#L404-L416
 					"syscall/js.copyBytesToJS": (ret_addr, dst_ref, src_addr, src_len, src_cap) => {
+						ret_addr >>>= 0;
+						src_addr >>>= 0;
+						src_len >>>= 0;
 						let num_bytes_copied_addr = ret_addr;
 						let returned_status_addr = ret_addr + 4; // Address of returned boolean status variable
 
@@ -488,7 +476,7 @@
 
 		async run(instance, context) {
 			this._inst = instance;
-			const globalProxy = new Proxy(global, {
+			const globalProxy = new Proxy(globalThis, {
 				get(target, prop) {
 					if (prop === 'context') {
 						return context;
@@ -510,6 +498,14 @@
 			this._idPool = [];      // unused ids that have been garbage collected
 			this.exited = false;    // whether the Go program has exited
 			this.exitCode = 0;
+			// syscall/js.handleEvent reads _pendingEvent and returns early only when
+			// it IsNull(). Leaving it `undefined` is not null, so handleEvent falls
+			// through to cb.Get("id") and panics with "call of Value.Get on
+			// undefined", which surfaces as RuntimeError: unreachable. Upstream Go's
+			// wasm_exec.js initializes this in its constructor; this line restores
+			// parity. Any resume() that runs without a pending event -- and resume()
+			// always spawns a handleEvent goroutine -- depends on it.
+			this._pendingEvent = null; // event awaiting dispatch by syscall/js.handleEvent
 
 			if (this._inst.exports._start) {
 				let exitPromise = new Promise((resolve, reject) => {
@@ -547,7 +543,7 @@
 
 		_makeFuncWrapper(id) {
 			const go = this;
-			return function () {
+			return function() {
 				const event = { id: id, this: this, args: arguments };
 				go._pendingEvent = event;
 				go._resume();
@@ -555,28 +551,5 @@
 			};
 		}
 	}
-
-	/*
-	if (
-		global.require &&
-		global.require.main === module &&
-		global.process &&
-		global.process.versions &&
-		!global.process.versions.electron
-	) {
-		if (process.argv.length != 3) {
-			console.error("usage: go_js_wasm_exec [wasm binary] [arguments]");
-			process.exit(1);
-		}
-
-		const go = new Go();
-		WebAssembly.instantiate(fs.readFileSync(process.argv[2]), go.importObject).then(async (result) => {
-			let exitCode = await go.run(result.instance);
-			process.exit(exitCode);
-		}).catch((err) => {
-			console.error(err);
-			process.exit(1);
-		});
-	}
-	*/
 })();
+
