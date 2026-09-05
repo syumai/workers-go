@@ -33,11 +33,14 @@ func resetOutDir(dir string) error {
 // copyStaticFiles copies the files the mirror needs that genforward doesn't
 // itself generate:
 //   - <srcDir>/LICENSE.md -> <outDir>/LICENSE.md
-//   - everything under <srcDir>/mirror/ -> <outDir>/ (verbatim), if present.
-//     This directory is where other tooling places static mirror-only files
-//     such as README.md, .github/workflows/sync.yml and the
-//     cmd/workers-assets-gen stub. It is skipped silently when absent.
-func copyStaticFiles(srcDir, outDir string) error {
+//   - everything under staticDir -> <outDir>/ (verbatim), if staticDir is
+//     non-empty. staticDir is where other tooling places static mirror-only
+//     files such as README.md and the cmd/workers-assets-gen stub (see
+//     internal/cmd/genforward/_static). Since staticDir is an explicit
+//     opt-in (typically the -static flag), it is an error for it to be
+//     non-empty but not exist, or to exist and not be a directory; that
+//     signals a misconfiguration rather than something to skip silently.
+func copyStaticFiles(srcDir, staticDir, outDir string) error {
 	licenseSrc := filepath.Join(srcDir, "LICENSE.md")
 	if _, err := os.Stat(licenseSrc); err == nil {
 		if err := copyFile(licenseSrc, filepath.Join(outDir, "LICENSE.md")); err != nil {
@@ -47,23 +50,23 @@ func copyStaticFiles(srcDir, outDir string) error {
 		return err
 	}
 
-	mirrorDir := filepath.Join(srcDir, "mirror")
-	info, err := os.Stat(mirrorDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-	if !info.IsDir() {
+	if staticDir == "" {
 		return nil
 	}
 
-	return filepath.WalkDir(mirrorDir, func(path string, d fs.DirEntry, err error) error {
+	info, err := os.Stat(staticDir)
+	if err != nil {
+		return fmt.Errorf("-static %s: %w", staticDir, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("-static %s: not a directory", staticDir)
+	}
+
+	return filepath.WalkDir(staticDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		rel, err := filepath.Rel(mirrorDir, path)
+		rel, err := filepath.Rel(staticDir, path)
 		if err != nil {
 			return err
 		}

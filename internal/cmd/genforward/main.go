@@ -20,6 +20,7 @@ type config struct {
 	version      string
 	mirrorModule string
 	replace      string
+	static       string
 }
 
 func parseFlags(args []string) (*config, error) {
@@ -30,6 +31,7 @@ func parseFlags(args []string) (*config, error) {
 	fs.StringVar(&cfg.version, "version", "", "version of the source module the mirror will require (required)")
 	fs.StringVar(&cfg.mirrorModule, "mirror-module", "github.com/syumai/workers", "module path written to the mirror's go.mod")
 	fs.StringVar(&cfg.replace, "replace", "", "if given, adds `replace <srcModule> => <dir>` to the mirror go.mod")
+	fs.StringVar(&cfg.static, "static", "", "directory whose contents are copied verbatim into the mirror root (README.md, command stubs, ...); nothing is copied when empty")
 	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
@@ -66,6 +68,13 @@ func run(cfg *config) error {
 	if err != nil {
 		return fmt.Errorf("resolving -out: %w", err)
 	}
+	staticAbs := cfg.static
+	if staticAbs != "" {
+		staticAbs, err = filepath.Abs(staticAbs)
+		if err != nil {
+			return fmt.Errorf("resolving -static: %w", err)
+		}
+	}
 
 	srcMod, err := readModule(srcAbs)
 	if err != nil {
@@ -93,7 +102,7 @@ func run(cfg *config) error {
 		return fmt.Errorf("writing go.mod: %w", err)
 	}
 
-	if err := copyStaticFiles(srcAbs, outAbs); err != nil {
+	if err := copyStaticFiles(srcAbs, staticAbs, outAbs); err != nil {
 		return fmt.Errorf("copying static files: %w", err)
 	}
 
