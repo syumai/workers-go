@@ -7,7 +7,7 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/syumai/workers/internal/jsutil"
+	"github.com/syumai/workers-go/internal/jsutil"
 )
 
 // Object represents Cloudflare R2 object.

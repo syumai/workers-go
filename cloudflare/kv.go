@@ -1,7 +1,7 @@
 package cloudflare
 
 import (
-	"github.com/syumai/workers/cloudflare/kv"
+	"github.com/syumai/workers-go/cloudflare/kv"
 )
 
 // KVNamespace represents interface of Cloudflare Worker's KV namespace instance.

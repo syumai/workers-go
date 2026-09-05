@@ -1,4 +1,4 @@
 github.com/go-chi/chi/v5 v5.0.8 h1:lD+NLqFcAi1ovnVZpsnObHGW4xb4J8lNmoYVfECH1Y0=
 github.com/go-chi/chi/v5 v5.0.8/go.mod h1:DslCQbL2OYiznFReuXYUmQ2hGd1aDpCnlMNITLSKoi8=
-github.com/syumai/workers v0.1.0 h1:z5QfQR2X+PCKzom7RodpI5J4D5YF7NT7Qwzb9AM9dgY=
-github.com/syumai/workers v0.1.0/go.mod h1:alXIDhTyeTwSzh0ZgQ3cb9HQPyyYfIejupE4Z3efr14=
+github.com/syumai/workers-go v0.1.0 h1:z5QfQR2X+PCKzom7RodpI5J4D5YF7NT7Qwzb9AM9dgY=
+github.com/syumai/workers-go v0.1.0/go.mod h1:alXIDhTyeTwSzh0ZgQ3cb9HQPyyYfIejupE4Z3efr14=

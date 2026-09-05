@@ -25,8 +25,8 @@ make deploy       # deploy worker
 
 NOTE: Wrangler does not support running multiple workers interacting with the same _local_ queue. Therefore, for the demostrational purposes,
 we use the same worker to both produce and consume messages from the queue. For a real-world scenario, please consider the differences
-between [queues.Consume](https://github.com/syumai/workers/blob/main/cloudflare/queues/consumer.go#L65) and 
-(queues.ConsumeNonBlock)(https://github.com/syumai/workers/blob/main/cloudflare/queues/consumer.go#L75) functions.
+between [queues.Consume](https://github.com/syumai/workers-go/blob/main/cloudflare/queues/consumer.go#L65) and 
+(queues.ConsumeNonBlock)(https://github.com/syumai/workers-go/blob/main/cloudflare/queues/consumer.go#L75) functions.
 
 1. Start the dev server.
 ```sh

@@ -1,7 +1,7 @@
 # pages-tinygo
 
 - A template for starting a Cloudflare Pages Functions project with tinygo.
-- This template uses the [`workers`](https://github.com/syumai/workers) package to run.
+- This template uses the [`workers`](https://github.com/syumai/workers-go) package to run.
 
 ## Usage
 
@@ -26,7 +26,7 @@ go install golang.org/x/tools/cmd/gonew@latest
   - Second argument passed to `gonew` is a module path of your new app.
 
 ```console
-gonew github.com/syumai/workers/_templates/cloudflare/pages-tinygo your.module/my-app # e.g. github.com/syumai/my-app
+gonew github.com/syumai/workers-go/_templates/cloudflare/pages-tinygo your.module/my-app # e.g. github.com/syumai/my-app
 cd my-app
 go mod tidy
 make build # build Go Wasm binary

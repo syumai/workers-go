@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/syumai/workers"
+	"github.com/syumai/workers-go"
 )
 
 func main() {

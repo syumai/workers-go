@@ -19,7 +19,7 @@
 
 * See the following documents for details on how to use R2.
   - https://developers.cloudflare.com/r2/runtime-apis
-  - https://pkg.go.dev/github.com/syumai/workers
+  - https://pkg.go.dev/github.com/syumai/workers-go
 
 ### Requirements
 

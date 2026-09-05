@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/syumai/workers"
-	"github.com/syumai/workers/cloudflare/sockets"
+	"github.com/syumai/workers-go"
+	"github.com/syumai/workers-go/cloudflare/sockets"
 )
 
 func main() {

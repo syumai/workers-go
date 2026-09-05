@@ -10,9 +10,9 @@ import (
 	"sync"
 	"syscall/js"
 
-	"github.com/syumai/workers/internal/jshttp"
-	"github.com/syumai/workers/internal/jsutil"
-	"github.com/syumai/workers/internal/runtimecontext"
+	"github.com/syumai/workers-go/internal/jshttp"
+	"github.com/syumai/workers-go/internal/jsutil"
+	"github.com/syumai/workers-go/internal/runtimecontext"
 )
 
 var (

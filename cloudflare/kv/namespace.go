@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"syscall/js"
 
-	"github.com/syumai/workers/cloudflare/internal/cfruntimecontext"
+	"github.com/syumai/workers-go/cloudflare/internal/cfruntimecontext"
 )
 
 // Namespace represents interface of Cloudflare Worker's KV namespace instance.

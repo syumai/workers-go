@@ -5,8 +5,8 @@ import (
 	"io"
 	"syscall/js"
 
-	"github.com/syumai/workers/cloudflare/internal/cfruntimecontext"
-	"github.com/syumai/workers/internal/jsutil"
+	"github.com/syumai/workers-go/cloudflare/internal/cfruntimecontext"
+	"github.com/syumai/workers-go/internal/jsutil"
 )
 
 // Bucket represents interface of Cloudflare Worker's R2 Bucket instance.
@@ -18,7 +18,7 @@ type Bucket struct {
 
 // NewBucket returns Bucket for given variable name.
 //   - variable name must be defined in wrangler.toml.
-//   - see example: https://github.com/syumai/workers/tree/main/_examples/r2-image-viewer
+//   - see example: https://github.com/syumai/workers-go/tree/main/_examples/r2-image-viewer
 //   - if the given variable name doesn't exist on runtime context, returns error.
 //   - This function panics when a runtime context is not found.
 func NewBucket(varName string) (*Bucket, error) {

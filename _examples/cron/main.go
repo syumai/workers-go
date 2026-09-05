@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/syumai/workers/cloudflare"
-	"github.com/syumai/workers/cloudflare/cron"
+	"github.com/syumai/workers-go/cloudflare"
+	"github.com/syumai/workers-go/cloudflare/cron"
 )
 
 func task(ctx context.Context) error {

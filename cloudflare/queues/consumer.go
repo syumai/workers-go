@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"syscall/js"
 
-	"github.com/syumai/workers/internal/jsutil"
+	"github.com/syumai/workers-go/internal/jsutil"
 )
 
 // Consumer is a function that received a batch of messages from Cloudflare Queues.
