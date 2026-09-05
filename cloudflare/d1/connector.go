@@ -5,7 +5,7 @@ import (
 	"database/sql/driver"
 	"syscall/js"
 
-	"github.com/syumai/workers/cloudflare/internal/cfruntimecontext"
+	"github.com/syumai/workers-go/cloudflare/internal/cfruntimecontext"
 )
 
 type Connector struct {

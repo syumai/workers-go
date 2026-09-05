@@ -1,11 +1,11 @@
 # worker-template-go
 
 - A template for starting a Cloudflare Worker project with Go.
-- This template uses [`workers`](https://github.com/syumai/workers) package to run an HTTP server.
+- This template uses [`workers`](https://github.com/syumai/workers-go) package to run an HTTP server.
 
 ## Notice
 
-- Go (not TinyGo) with many dependencies may exceed the size limit of the Worker (3MB for free plan, 10MB for paid plan). In that case, you can use the [TinyGo template](https://github.com/syumai/workers/tree/main/_templates/cloudflare/worker-tinygo) instead.
+- Go (not TinyGo) with many dependencies may exceed the size limit of the Worker (3MB for free plan, 10MB for paid plan). In that case, you can use the [TinyGo template](https://github.com/syumai/workers-go/tree/main/_templates/cloudflare/worker-tinygo) instead.
 
 ## Usage
 
@@ -21,7 +21,7 @@
 - Create a new worker project using this template.
 
 ```console
-npm create cloudflare@latest -- --template github.com/syumai/workers/_templates/cloudflare/worker-go
+npm create cloudflare@latest -- --template github.com/syumai/workers-go/_templates/cloudflare/worker-go
 ```
 
 - Initialize a project.

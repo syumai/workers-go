@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/syumai/workers/internal/jsutil"
+	"github.com/syumai/workers-go/internal/jsutil"
 )
 
 func validatingProducer(t *testing.T, validateFn func(message js.Value, options js.Value) error) *Producer {

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/syumai/workers/internal/jsutil"
+	"github.com/syumai/workers-go/internal/jsutil"
 )
 
 func TestNewConsumerMessage(t *testing.T) {

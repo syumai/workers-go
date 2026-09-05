@@ -22,7 +22,7 @@ func Serve(handler http.Handler) {
 	}
 	addr := fmt.Sprintf(":%s", port)
 	fmt.Printf("listening on: http://localhost%s\n", addr)
-	fmt.Fprintln(os.Stderr, "warn: this server is currently running in non-JS mode. to enable JS-related features, please use the make command in the syumai/workers template.")
+	fmt.Fprintln(os.Stderr, "warn: this server is currently running in non-JS mode. to enable JS-related features, please use the make command in the syumai/workers-go template.")
 	http.ListenAndServe(addr, handler)
 }
 

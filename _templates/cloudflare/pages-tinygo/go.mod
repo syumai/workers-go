@@ -1,4 +1,4 @@
-module github.com/syumai/workers/_examples/pages-tinygo
+module github.com/syumai/workers-go/_examples/pages-tinygo
 
 go 1.21.1
 

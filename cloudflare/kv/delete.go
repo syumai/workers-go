@@ -1,7 +1,7 @@
 package kv
 
 import (
-	"github.com/syumai/workers/internal/jsutil"
+	"github.com/syumai/workers-go/internal/jsutil"
 )
 
 // Delete deletes key-value pair specified by the key.

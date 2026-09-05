@@ -1,7 +1,7 @@
-module github.com/syumai/workers/_examples/kv-counter
+module github.com/syumai/workers-go/_examples/kv-counter
 
 go 1.21.3
 
-require github.com/syumai/workers v0.0.0
+require github.com/syumai/workers-go v0.0.0
 
-replace github.com/syumai/workers => ../../
+replace github.com/syumai/workers-go => ../../

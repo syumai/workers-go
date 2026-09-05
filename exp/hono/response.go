@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"syscall/js"
 
-	"github.com/syumai/workers/internal/jshttp"
-	"github.com/syumai/workers/internal/jsutil"
+	"github.com/syumai/workers-go/internal/jshttp"
+	"github.com/syumai/workers-go/internal/jsutil"
 )
 
 func convertBodyToJS(body io.ReadCloser) js.Value {

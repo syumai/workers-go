@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/syumai/workers/_examples/d1-blog-server/app/model"
+	"github.com/syumai/workers-go/_examples/d1-blog-server/app/model"
 )
 
 type articleHandler struct {

@@ -4,7 +4,7 @@ import (
 	"io"
 	"syscall/js"
 
-	"github.com/syumai/workers/internal/jsutil"
+	"github.com/syumai/workers-go/internal/jsutil"
 )
 
 // GetOptions represents Cloudflare KV namespace get options.

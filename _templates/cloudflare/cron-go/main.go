@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/syumai/workers/cloudflare/cron"
+	"github.com/syumai/workers-go/cloudflare/cron"
 )
 
 func task(ctx context.Context) error {

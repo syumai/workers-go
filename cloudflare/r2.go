@@ -1,7 +1,7 @@
 package cloudflare
 
 import (
-	"github.com/syumai/workers/cloudflare/r2"
+	"github.com/syumai/workers-go/cloudflare/r2"
 )
 
 // R2Bucket represents interface of Cloudflare Worker's R2 Bucket instance.
