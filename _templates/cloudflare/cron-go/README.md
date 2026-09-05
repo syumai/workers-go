@@ -30,7 +30,7 @@ npm create cloudflare@latest -- --template github.com/syumai/workers-go/_templat
 
 ```console
 cd my-app
-go mod init your.module/my-app # e.g. github.com/syumai/my-app
+go mod init
 go mod tidy
 npm start # start running dev server
 ```

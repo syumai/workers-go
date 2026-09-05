@@ -109,7 +109,7 @@ cd my-app
 2. Initialize Go modules:
 
 ```console
-go mod init your.module/my-app # e.g. github.com/syumai/my-app
+go mod init
 go mod tidy
 ```
 
