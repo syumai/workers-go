@@ -60,26 +60,6 @@ jobs:
         with:
           go-version-file: go.mod
 
-      # The mirror-compat job never checks out syumai/workers (the mirror):
-      # it may not exist yet, and this check only needs to know whether the
-      # *shape* of the generated mirror would change between the PR's base
-      # and head. Both trees are generated locally with genforward instead.
-      - name: Generate mirror forwarders from PR base
-        id: base
-        run: |
-          set -e
-          git worktree add /tmp/base "origin/${{ github.base_ref }}"
-          if [ ! -x /tmp/base/scripts/genforward.sh ]; then
-            # Bootstrap case: the base branch predates genforward, so there is
-            # no base tree to compare against. The head tree is still
-            # generated, built, vetted and smoke-tested below.
-            echo "::notice::origin/${{ github.base_ref }} has no scripts/genforward.sh; skipping the base-vs-head API diff for this PR."
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          /tmp/base/scripts/genforward.sh -out /tmp/mirror-base -version v0.0.0-base -replace /tmp/base
-          echo "available=true" >> "$GITHUB_OUTPUT"
-
       - name: Generate mirror forwarders from PR head
         run: |
           ./scripts/genforward.sh -out /tmp/mirror-head -version v0.0.0-head -replace "$GITHUB_WORKSPACE"
@@ -104,29 +84,48 @@ jobs:
       - name: Run mirror smoke tests
         run: bash mirror-tests/run.sh
 
-      # apidiff (golang.org/x/exp/cmd/apidiff) is preferred, but its `-m`
-      # mode resolves module arguments as module paths through the *current*
-      # module's build graph, not as arbitrary directories: two independent
-      # trees that declare the same module path (as /tmp/mirror-base and
-      # /tmp/mirror-head both do) cannot be loaded together, so
-      # `apidiff -m /tmp/mirror-base /tmp/mirror-head` fails with
-      # "directory prefix ... does not contain main module or its selected
-      # dependencies" (verified locally). We use the documented fallback
-      # instead: scripts/mirror-symbol-diff.sh dumps each package's exported
-      # API with `go doc -all` and diffs the (comment-stripped) text.
+      # We compare the workers-go *source* trees of the PR's base and head,
+      # not the generated mirror trees: the mirror consists entirely of
+      # transparent forwarders (`type T = src.T`, `var F = src.F`), whose
+      # declared type never changes even when the underlying source
+      # symbol's signature, method set, or struct fields do. Diffing the
+      # mirror's exported API only catches whole-symbol add/remove, so
+      # scripts/apidiff.sh diffs the source trees with
+      # golang.org/x/exp/cmd/apidiff instead.
+      #
+      # apidiff's `-m` mode resolves module arguments as module paths
+      # through the *current* module's build graph, not as arbitrary
+      # directories: two independent trees that declare the same module
+      # path (as the base and head checkouts of workers-go both do) cannot
+      # be loaded together, so `apidiff -m /tmp/base "$GITHUB_WORKSPACE"`
+      # fails with "directory prefix ... does not contain main module or
+      # its selected dependencies" (verified locally). scripts/apidiff.sh
+      # works around this with apidiff's export-file mode: it writes each
+      # tree's exported API to a file (`apidiff -m -w FILE MODULE`, run
+      # with cwd inside that tree) and then compares the two files, never
+      # loading both trees at once.
+      #
+      # Exit codes: 0 no incompatible changes, 1 incompatible changes
+      # found, 3 the base and head trees declare different module paths
+      # (not comparable; this happens exactly once, at the workers ->
+      # workers-go module rename).
       - name: Compare exported API (base vs head)
         id: apidiff
-        if: steps.base.outputs.available == 'true'
         run: |
+          git worktree add /tmp/base "origin/${{ github.base_ref }}"
           set +e
-          bash scripts/mirror-symbol-diff.sh /tmp/mirror-base /tmp/mirror-head
+          bash scripts/apidiff.sh /tmp/base "$GITHUB_WORKSPACE"
           code=$?
           set -e
-          if [ "$code" -ne 0 ]; then
-            echo "breaking=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "breaking=false" >> "$GITHUB_OUTPUT"
-          fi
+          case "$code" in
+            0) echo "breaking=false" >> "$GITHUB_OUTPUT" ;;
+            1) echo "breaking=true" >> "$GITHUB_OUTPUT" ;;
+            3)
+              echo "::notice::Base and head declare different module paths; skipping the API diff for this PR."
+              echo "breaking=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *) echo "::error::scripts/apidiff.sh exited with unexpected code $code"; exit 1 ;;
+          esac
 
       # tagpr's own release PRs (labeled "tagpr") normally carry no source
       # diff against main (versionFile = -), so they pass this check like
