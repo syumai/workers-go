@@ -132,3 +132,20 @@ func DateToTime(v js.Value) (time.Time, error) {
 func TimeToDate(t time.Time) js.Value {
 	return DateClass.New(t.UnixMilli())
 }
+
+// ArrayBufferToBytes converts JavaScript ArrayBuffer to Go []byte.
+func ArrayBufferToBytes(v js.Value) []byte {
+	if v.IsUndefined() || v.IsNull() {
+		return nil
+	}
+
+	// Create a Uint8Array view of the ArrayBuffer
+	uint8Array := Uint8ArrayClass.New(v)
+	length := uint8Array.Get("length").Int()
+
+	// Create Go byte slice and copy data
+	result := make([]byte, length)
+	js.CopyBytesToGo(result, uint8Array)
+
+	return result
+}

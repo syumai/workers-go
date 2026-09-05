@@ -15,8 +15,8 @@ func NewR2Bucket(varName string) (*R2Bucket, error) {
 }
 
 // R2PutOptions represents Cloudflare R2 put options.
-// Deprecated: use r2.PutOptions instead.
-type R2PutOptions = r2.PutOptions
+// Deprecated: use r2.R2PutOptions instead.
+type R2PutOptions = r2.R2PutOptions
 
 // R2Object represents Cloudflare R2 object.
 // Deprecated: use r2.Object instead.
