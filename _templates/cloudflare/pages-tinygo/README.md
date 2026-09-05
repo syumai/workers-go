@@ -10,28 +10,25 @@
 ## Requirements
 
 - Node.js
-- [wrangler](https://developers.cloudflare.com/workers/wrangler/)
-  - just run `npm install -g wrangler`
 - TinyGo 0.42.0 or later
   - TinyGo 0.41.x cannot build `net/http` for Wasm (see [tinygo-org/tinygo#5350](https://github.com/tinygo-org/tinygo/issues/5350)).
 
 ## Getting Started
 
-* If not already installed, please install the [gonew](https://pkg.go.dev/golang.org/x/tools/cmd/gonew) command.
+- Create a new worker project using this template.
 
 ```console
-go install golang.org/x/tools/cmd/gonew@latest
+npm create cloudflare@latest -- --template github.com/syumai/workers-go/_templates/cloudflare/pages-tinygo
 ```
 
-* Create a new project using this template.
-  - Second argument passed to `gonew` is a module path of your new app.
+- Initialize a project.
 
 ```console
-gonew github.com/syumai/workers-go/_templates/cloudflare/pages-tinygo your.module/my-app # e.g. github.com/syumai/my-app
 cd my-app
+go mod init
 go mod tidy
-make build # build Go Wasm binary
-make dev # start running dev server
+npm run build # build Go Wasm binary
+npm start # start running dev server
 curl http://localhost:8787/api/hello # outputs "Hello, Pages Functions!"
 ```
 
@@ -40,9 +37,9 @@ curl http://localhost:8787/api/hello # outputs "Hello, Pages Functions!"
 ### Commands
 
 ```
-make dev     # run dev server
-make build   # build Go Wasm binary
-make deploy # deploy worker
+npm start      # run dev server
+npm run build  # build Go Wasm binary
+npm run deploy # deploy worker
 ```
 
 ### Testing dev server
@@ -68,4 +65,3 @@ Hello, Hello world!
 $ curl http://localhost:8787/api/hello3
 Hello, Hello, Hello world!
 ```
-

@@ -219,40 +219,52 @@ jobs:
         if: steps.sync_target.outputs.tag != ''
         run: bash mirror-tests/run.sh
 
-      # apidiff-style comparison against the previous mirror tag. A brand
-      # new mirror repository has no tags at all yet, in which case there
-      # is nothing to diff against (bootstrap sync).
-      - name: Compare exported API (previous mirror tag vs new tree)
+      # Compare the workers-go source tree at the previous tag against the
+      # tree being released now, with scripts/apidiff.sh (see its header
+      # for why source trees rather than the generated mirror, and how it
+      # avoids apidiff's single-build-graph limitation). This runs against
+      # this repository's own tags, not the mirror's: the mirror repository
+      # may not even exist yet (bootstrap sync) and its tag history is a
+      # derived copy of this one's release tags anyway.
+      #
+      # PREV_TAG is the largest tag in this repo (matching v*) strictly
+      # less than TAG, in semver order: inject TAG into the sorted tag list
+      # (it may not itself be a real tag yet, e.g. a workflow_dispatch dry
+      # run against an unreleased version) and take the entry immediately
+      # before it. `|| true` absorbs the pipeline's exit status when TAG is
+      # the smallest (or there are no prior v* tags at all): the last grep
+      # then matches nothing, and with pipefail (the default for GitHub
+      # Actions bash steps) that alone would otherwise fail the step even
+      # though "no previous tag" is an expected, non-error outcome here.
+      - name: Compare exported API (previous workers-go tag vs new tree)
         if: steps.sync_target.outputs.tag != ''
         id: apidiff
-        working-directory: ../mirror
         env:
           TAG: ${{ steps.sync_target.outputs.tag }}
         run: |
           set -e
-          if [ -z "$(git tag --list)" ]; then
-            echo "no previous mirror tag, skipping symbol diff"
-            echo "breaking=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          PREV_TAG=$(git tag --sort=-v:refname | grep -vFx "$TAG" | head -1 || true)
+          PREV_TAG=$( { git tag --list 'v*'; echo "$TAG"; } | sort -uV | grep -B1 -Fx "$TAG" | grep -vFx "$TAG" | tail -1 || true )
           if [ -z "$PREV_TAG" ]; then
-            echo "no previous mirror tag, skipping symbol diff"
+            echo "::notice::No previous workers-go tag found before $TAG; skipping the API diff."
             echo "breaking=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          echo "Comparing against previous mirror tag $PREV_TAG"
-          git worktree add /tmp/mirror-prev "$PREV_TAG"
+          echo "Comparing against previous workers-go tag $PREV_TAG"
+          git worktree add /tmp/workers-go-prev "$PREV_TAG"
           set +e
-          bash "$GITHUB_WORKSPACE/scripts/mirror-symbol-diff.sh" /tmp/mirror-prev .
+          bash "$GITHUB_WORKSPACE/scripts/apidiff.sh" /tmp/workers-go-prev "$GITHUB_WORKSPACE"
           code=$?
           set -e
-          git worktree remove /tmp/mirror-prev --force
-          if [ "$code" -ne 0 ]; then
-            echo "breaking=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "breaking=false" >> "$GITHUB_OUTPUT"
-          fi
+          git worktree remove /tmp/workers-go-prev --force
+          case "$code" in
+            0) echo "breaking=false" >> "$GITHUB_OUTPUT" ;;
+            1) echo "breaking=true" >> "$GITHUB_OUTPUT" ;;
+            3)
+              echo "::notice::$PREV_TAG and $TAG declare different module paths; skipping the API diff."
+              echo "breaking=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *) echo "::error::scripts/apidiff.sh exited with unexpected code $code"; exit 1 ;;
+          esac
 
       # There is no single reliable "labels of the PR that produced this
       # release" API call (a GitHub Release is a tag + notes, not a PR), and

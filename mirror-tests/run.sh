@@ -68,6 +68,8 @@ check "mirror: GOOS=js GOARCH=wasm go vet ./..." \
 # GOOS=js, so the mirror faithfully reproduces that limitation.
 check "mirror: go build . (host, root package only)" \
   bash -c "cd '$tmp_mirror' && go build ."
+check "mirror: static files copied (README.md, cmd/workers-assets-gen/main.go, LICENSE.md)" \
+  bash -c "[ -f '$tmp_mirror/README.md' ] && [ -f '$tmp_mirror/cmd/workers-assets-gen/main.go' ] && [ -f '$tmp_mirror/LICENSE.md' ]"
 
 echo "=== building mirror-tests/oldpath (mirror-only import) ==="
 rm -rf "$tmp_oldpath"

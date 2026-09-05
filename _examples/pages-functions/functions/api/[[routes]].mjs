@@ -1,6 +1,3 @@
-import mod from "../../build/app.wasm";
-import * as imports from "../../build/shim.mjs"
+import worker from "../../build/worker.mjs";
 
-imports.init(mod);
-
-export const onRequest = imports.onRequest;
+export const onRequest = worker.onRequest;

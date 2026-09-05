@@ -238,8 +238,6 @@ func exportedNames(scope *types.Scope) []string {
 //   - functions must not be generic (the codebase is expected to have none).
 //   - types must not be generic (plain `type X = src.X` aliases can't carry
 //     type parameters).
-//   - the object's type must not reference an internal/ package of the
-//     source module; an alias cannot re-export something callers can't name.
 func symbolFor(pkg *packages.Package, name string) (symbol, error) {
 	obj := pkg.Types.Scope().Lookup(name)
 	if obj == nil {
@@ -266,22 +264,7 @@ func symbolFor(pkg *packages.Package, name string) (symbol, error) {
 		return symbol{}, fmt.Errorf("symbol %s has unsupported object kind %T", name, obj)
 	}
 
-	if bad := findInternalRef(obj.Type(), moduleOf(pkg), 0); bad != nil {
-		return symbol{}, fmt.Errorf(
-			"symbol %s references %s, which belongs to an internal/ package of the source module and cannot be re-exported through an alias",
-			name, bad.Id(),
-		)
-	}
-
 	return symbol{name: name, kind: kind}, nil
-}
-
-// moduleOf returns the module path that pkg belongs to.
-func moduleOf(pkg *packages.Package) string {
-	if pkg.Module != nil {
-		return pkg.Module.Path
-	}
-	return ""
 }
 
 // isInternalRelDir reports whether relDir (a package directory path relative
@@ -296,85 +279,6 @@ func isInternalRelDir(relDir string) bool {
 		}
 	}
 	return false
-}
-
-// isInternalImport reports whether pkgPath names a package belonging to
-// modulePath's internal/ tree.
-func isInternalImport(pkgPath, modulePath string) bool {
-	if modulePath == "" || pkgPath == modulePath {
-		return false
-	}
-	if !strings.HasPrefix(pkgPath, modulePath+"/") {
-		return false
-	}
-	rel := strings.TrimPrefix(pkgPath, modulePath+"/")
-	return isInternalRelDir(rel)
-}
-
-// findInternalRef walks t looking for a *types.Named type that belongs to an
-// internal/ package of modulePath. It returns the offending type's object, or
-// nil if none is found. The walk is bounded in depth to guard against
-// pathological or recursive types.
-func findInternalRef(t types.Type, modulePath string, depth int) *types.TypeName {
-	if t == nil || depth > 16 {
-		return nil
-	}
-	switch tt := t.(type) {
-	case *types.Named:
-		obj := tt.Obj()
-		if pkg := obj.Pkg(); pkg != nil && isInternalImport(pkg.Path(), modulePath) {
-			return obj
-		}
-		if ta := tt.TypeArgs(); ta != nil {
-			for i := 0; i < ta.Len(); i++ {
-				if r := findInternalRef(ta.At(i), modulePath, depth+1); r != nil {
-					return r
-				}
-			}
-		}
-		return findInternalRef(tt.Underlying(), modulePath, depth+1)
-	case *types.Pointer:
-		return findInternalRef(tt.Elem(), modulePath, depth+1)
-	case *types.Slice:
-		return findInternalRef(tt.Elem(), modulePath, depth+1)
-	case *types.Array:
-		return findInternalRef(tt.Elem(), modulePath, depth+1)
-	case *types.Map:
-		if r := findInternalRef(tt.Key(), modulePath, depth+1); r != nil {
-			return r
-		}
-		return findInternalRef(tt.Elem(), modulePath, depth+1)
-	case *types.Chan:
-		return findInternalRef(tt.Elem(), modulePath, depth+1)
-	case *types.Struct:
-		for i := 0; i < tt.NumFields(); i++ {
-			if r := findInternalRef(tt.Field(i).Type(), modulePath, depth+1); r != nil {
-				return r
-			}
-		}
-	case *types.Interface:
-		for i := 0; i < tt.NumExplicitMethods(); i++ {
-			if r := findInternalRef(tt.ExplicitMethod(i).Type(), modulePath, depth+1); r != nil {
-				return r
-			}
-		}
-	case *types.Signature:
-		if p := tt.Params(); p != nil {
-			for i := 0; i < p.Len(); i++ {
-				if r := findInternalRef(p.At(i).Type(), modulePath, depth+1); r != nil {
-					return r
-				}
-			}
-		}
-		if r := tt.Results(); r != nil {
-			for i := 0; i < r.Len(); i++ {
-				if x := findInternalRef(r.At(i).Type(), modulePath, depth+1); x != nil {
-					return x
-				}
-			}
-		}
-	}
-	return nil
 }
 
 // packageDoc extracts the package-level doc comment from pkg's syntax trees,

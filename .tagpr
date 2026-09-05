@@ -4,3 +4,4 @@
 	vPrefix = true
 	release = true
 	changelog = false
+	minorLabels = minor,breaking
