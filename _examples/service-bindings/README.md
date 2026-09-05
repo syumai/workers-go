@@ -1,7 +1,7 @@
 # service-bindings
 
 - Service bindings are an API that facilitate Worker-to-Worker communication via explicit bindings defined in your configuration.
-- In this example, invoke [hello](https://github.com/syumai/workers/tree/main/_examples/hello) using Service bindings.
+- In this example, invoke [hello](https://github.com/syumai/workers-go/tree/main/_examples/hello) using Service bindings.
 
 ## Development
 
@@ -14,7 +14,7 @@ This project requires these tools to be installed globally.
 
 ### Deploy Steps
 
-1. Deploy [hello](https://github.com/syumai/workers/tree/main/_examples/hello) first.
+1. Deploy [hello](https://github.com/syumai/workers-go/tree/main/_examples/hello) first.
 2. Define service bindings in `wrangler.toml`.
     ```toml
     services = [

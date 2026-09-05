@@ -6,8 +6,8 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/syumai/workers/cloudflare/internal/cfruntimecontext"
-	"github.com/syumai/workers/internal/jsutil"
+	"github.com/syumai/workers-go/cloudflare/internal/cfruntimecontext"
+	"github.com/syumai/workers-go/internal/jsutil"
 )
 
 type SecureTransport string

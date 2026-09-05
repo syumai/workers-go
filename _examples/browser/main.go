@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/syumai/workers"
+	"github.com/syumai/workers-go"
 )
 
 type AddRequest struct {

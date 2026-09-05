@@ -1,28 +1,296 @@
 name: release
 
-# Placeholder so that GitHub registers this workflow: workflow_dispatch can
-# only be triggered for workflows that exist on the default branch, but the
-# dispatched run itself uses the workflow file from the selected branch.
-# The real release workflow (tagpr + mirror sync, see #173) lands on main
-# together with the module rename.
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       tag:
-        description: workers-go tag to (re-)sync to the mirror
+        description: >-
+          workers-go tag to (re-)sync to the mirror (e.g. v0.35.0). Required:
+          a manual run only ever (re-)syncs an existing tag, it never runs
+          tagpr.
         required: true
         type: string
       dry_run:
-        description: Sync the current checkout to MIRROR_REPO instead of a published tag
+        description: >-
+          Sync to MIRROR_REPO (a scratch repository) using the current
+          checkout instead of the published tag, with a local `replace` so
+          it works without network access to the module proxy. Never use
+          this against the real mirror.
         required: false
         type: boolean
         default: false
 
+env:
+  # The mirror repository, as "<owner>/<repo>". Overridable via the
+  # MIRROR_REPO repository/organization variable so this workflow can be
+  # pointed at a scratch repository for a dry run without editing the file.
+  MIRROR_REPO: ${{ vars.MIRROR_REPO || 'syumai/workers' }}
+
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
+  issues: read
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "This is a placeholder; run this workflow from the rename branch (see #173)."
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: DRY RUN banner
+        if: inputs.dry_run == true
+        run: |
+          echo "::warning::================================================================"
+          echo "::warning:: DRY RUN: syncing the CURRENT CHECKOUT to ${MIRROR_REPO}."
+          echo "::warning:: This still pushes commits and tags to that repository."
+          echo "::warning:: Only ever point this at a scratch/dry-run mirror repository."
+          echo "::warning::================================================================"
+
+      # On a push to main, tagpr either updates the release PR (outputs.tag
+      # stays empty) or, when the release PR was just merged, tags the new
+      # HEAD and publishes the GitHub Release (outputs.tag is set). tagpr
+      # never runs on workflow_dispatch: a manual run only (re-)syncs a tag
+      # that already exists and must never open a release PR from whatever
+      # branch it happens to be dispatched on.
+      - name: Run tagpr
+        id: tagpr
+        if: github.event_name == 'push'
+        uses: Songmu/tagpr@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve mirror sync target
+        id: sync_target
+        run: |
+          TAG="${{ inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="${{ steps.tagpr.outputs.tag }}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          if [ -n "$TAG" ]; then
+            echo "Syncing mirror to $TAG"
+          else
+            echo "No tag to sync (tagpr only updated/created the release PR, or this is a no-op dispatch)."
+          fi
+
+      # --- Everything below only runs when a tag was resolved above: either
+      # tagpr just created one on this push, or this run was dispatched
+      # manually with an explicit `tag` input. ---
+
+      # Only for a real (non-dry-run) sync: pin the checkout to the exact
+      # released tag so the generated mirror requires that published,
+      # immutable version. A dry run intentionally stays on the current
+      # checkout (github.ref) and forwards to it with `-replace` instead, so
+      # it never needs the tag to be published anywhere.
+      - name: Re-checkout workers-go at the target tag
+        if: steps.sync_target.outputs.tag != '' && github.event_name == 'workflow_dispatch' && inputs.dry_run != true
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.sync_target.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Setup Golang
+        if: steps.sync_target.outputs.tag != ''
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Wait for the tag to be resolvable via the Go module proxy
+        if: steps.sync_target.outputs.tag != '' && inputs.dry_run != true
+        env:
+          TAG: ${{ steps.sync_target.outputs.tag }}
+        run: |
+          for i in $(seq 1 60); do
+            if GOPROXY=https://proxy.golang.org GOFLAGS=-mod=mod go list -m "github.com/syumai/workers-go@${TAG}" >/dev/null 2>&1; then
+              echo "github.com/syumai/workers-go@${TAG} is resolvable."
+              exit 0
+            fi
+            echo "Waiting for github.com/syumai/workers-go@${TAG} to be resolvable via proxy.golang.org (attempt $i/60)..."
+            sleep 10
+          done
+          echo "::error::github.com/syumai/workers-go@${TAG} did not become resolvable within 10 minutes."
+          exit 1
+
+      # The mirror is pushed to directly (git over SSH), not through the
+      # GITHUB_TOKEN of this repository: GITHUB_TOKEN is scoped to
+      # workers-go and cannot push to MIRROR_REPO. MIRROR_DEPLOY_KEY is a
+      # deploy key that grants write access to the mirror repository only
+      # (nothing else), and never leaves this job as a value workers-go
+      # itself is reachable with.
+      - name: Set up the mirror deploy key
+        if: steps.sync_target.outputs.tag != ''
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.MIRROR_DEPLOY_KEY }}
+
+      - name: Trust github.com's host key
+        if: steps.sync_target.outputs.tag != ''
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -t rsa,ed25519 github.com >> ~/.ssh/known_hosts
+
+      # A brand-new mirror repository may be completely empty (no branches,
+      # no tags): `git clone` of an empty repository still succeeds (with a
+      # warning on stderr), it just leaves the checkout without a current
+      # branch, which is fine since genforward regenerates the whole tree
+      # from scratch and the commit/push step below creates `main` itself.
+      - name: Clone the mirror
+        if: steps.sync_target.outputs.tag != ''
+        run: git clone "git@github.com:${MIRROR_REPO}.git" ../mirror
+
+      # Never rewrite a tag that's already published: doing so breaks
+      # sum.golang.org checksums for everyone who already fetched it. Check
+      # this first, before generating or pushing anything, so a rejected
+      # re-sync leaves the mirror completely untouched. If TAG already
+      # exists on the mirror, the fix is a new workers-go patch release.
+      - name: Refuse to re-sync a tag the mirror already has
+        if: steps.sync_target.outputs.tag != ''
+        working-directory: ../mirror
+        env:
+          TAG: ${{ steps.sync_target.outputs.tag }}
+        run: |
+          if [ -n "$(git ls-remote --tags origin "refs/tags/${TAG}")" ]; then
+            echo "::error::Tag ${TAG} already exists on the mirror (${MIRROR_REPO}). Rewriting a published tag would break sum.golang.org checksums for anyone who already fetched it. Cut a new workers-go patch release instead."
+            exit 1
+          fi
+          echo "Tag ${TAG} does not exist on the mirror yet."
+
+      - name: Generate forwarders from this tag
+        if: steps.sync_target.outputs.tag != ''
+        env:
+          TAG: ${{ steps.sync_target.outputs.tag }}
+        run: |
+          set -e
+          mirror_dir="$(cd ../mirror && pwd)"
+          mirror_module="github.com/${MIRROR_REPO}"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            # Dry run: the source is this checkout, not a published tag, so
+            # the mirror needs a `replace` pointing at it (an absolute path,
+            # since genforward's own module runs via `go run -C` and would
+            # otherwise resolve a relative path against the wrong directory).
+            ./scripts/genforward.sh -out "$mirror_dir" -version "$TAG" -mirror-module "$mirror_module" -replace "$GITHUB_WORKSPACE"
+          else
+            # No -replace: the source is the checked-out tag itself (the
+            # explicit ref: $TAG checkout above), so the generated mirror
+            # go.mod requires the real, published github.com/syumai/workers-go@$TAG.
+            ./scripts/genforward.sh -out "$mirror_dir" -version "$TAG" -mirror-module "$mirror_module"
+          fi
+          grep -q '^go ' "$mirror_dir/go.mod" || { echo "::error::generated mirror go.mod has no 'go' directive"; exit 1; }
+
+      - name: go mod tidy (mirror)
+        if: steps.sync_target.outputs.tag != ''
+        working-directory: ../mirror
+        run: go mod tidy
+
+      - name: Build and vet the mirror (wasm target)
+        if: steps.sync_target.outputs.tag != ''
+        working-directory: ../mirror
+        run: |
+          GOOS=js GOARCH=wasm go build ./...
+          GOOS=js GOARCH=wasm go vet ./...
+
+      - name: Build the mirror's root package (host target)
+        if: steps.sync_target.outputs.tag != ''
+        working-directory: ../mirror
+        run: |
+          # Every mirror package other than the root one imports
+          # syscall/js unconditionally and only ever compiles for
+          # GOOS=js/GOARCH=wasm, so this is intentionally `go build .`
+          # (root package only), never `go build ./...`.
+          go build .
+
+      - name: Run workers-go's mirror smoke tests
+        if: steps.sync_target.outputs.tag != ''
+        run: bash mirror-tests/run.sh
+
+      # apidiff-style comparison against the previous mirror tag. A brand
+      # new mirror repository has no tags at all yet, in which case there
+      # is nothing to diff against (bootstrap sync).
+      - name: Compare exported API (previous mirror tag vs new tree)
+        if: steps.sync_target.outputs.tag != ''
+        id: apidiff
+        working-directory: ../mirror
+        env:
+          TAG: ${{ steps.sync_target.outputs.tag }}
+        run: |
+          set -e
+          if [ -z "$(git tag --list)" ]; then
+            echo "no previous mirror tag, skipping symbol diff"
+            echo "breaking=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          PREV_TAG=$(git tag --sort=-v:refname | grep -vFx "$TAG" | head -1 || true)
+          if [ -z "$PREV_TAG" ]; then
+            echo "no previous mirror tag, skipping symbol diff"
+            echo "breaking=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "Comparing against previous mirror tag $PREV_TAG"
+          git worktree add /tmp/mirror-prev "$PREV_TAG"
+          set +e
+          bash "$GITHUB_WORKSPACE/scripts/mirror-symbol-diff.sh" /tmp/mirror-prev .
+          code=$?
+          set -e
+          git worktree remove /tmp/mirror-prev --force
+          if [ "$code" -ne 0 ]; then
+            echo "breaking=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "breaking=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # There is no single reliable "labels of the PR that produced this
+      # release" API call (a GitHub Release is a tag + notes, not a PR), and
+      # matching it back via a merged-PR search is finicky (squash commits,
+      # PRs merged out of order, etc.). The robust, simple signal is the
+      # release notes themselves: .github/release.yml puts every PR labeled
+      # "breaking" under a "Breaking Changes" heading, so that heading is
+      # present in this release's body if and only if a breaking-labeled
+      # change went into it.
+      - name: Check this release's notes for a Breaking Changes section
+        if: steps.sync_target.outputs.tag != '' && steps.apidiff.outputs.breaking == 'true'
+        id: release_notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.sync_target.outputs.tag }}
+        run: |
+          set -e
+          BODY=$(gh api "repos/${{ github.repository }}/releases/tags/${TAG}" --jq .body)
+          if echo "$BODY" | grep -qi '^#\+ *Breaking Changes'; then
+            echo "acknowledged=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "acknowledged=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fail on unacknowledged breaking API changes
+        if: steps.sync_target.outputs.tag != '' && steps.apidiff.outputs.breaking == 'true' && steps.release_notes.outputs.acknowledged != 'true'
+        run: |
+          echo "::error::${{ steps.sync_target.outputs.tag }} removes or changes exported symbols the mirror forwards, but its release notes have no 'Breaking Changes' section. Not pushing to the mirror."
+          exit 1
+
+      - name: Commit and push to the mirror
+        if: steps.sync_target.outputs.tag != ''
+        working-directory: ../mirror
+        env:
+          TAG: ${{ steps.sync_target.outputs.tag }}
+        run: |
+          set -e
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Generated tree is identical to the current mirror; nothing to commit."
+          else
+            git commit -m "sync to workers-go ${TAG}"
+          fi
+          # Creates `main` on a brand-new/empty mirror repository too.
+          git push origin HEAD:main
+          # The tag was verified to be absent right after cloning; never
+          # use -f / --force here.
+          git tag "${TAG}"
+          git push origin "${TAG}"

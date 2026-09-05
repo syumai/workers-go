@@ -5,7 +5,7 @@ import (
 	"syscall/js"
 	"time"
 
-	"github.com/syumai/workers/internal/jsutil"
+	"github.com/syumai/workers-go/internal/jsutil"
 )
 
 // Message represents a message of the batch received by the consumer.

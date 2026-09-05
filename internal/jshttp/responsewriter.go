@@ -7,7 +7,7 @@ import (
 	"sync"
 	"syscall/js"
 
-	"github.com/syumai/workers/internal/jsutil"
+	"github.com/syumai/workers-go/internal/jsutil"
 )
 
 type ResponseWriter struct {

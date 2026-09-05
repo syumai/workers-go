@@ -5,15 +5,15 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/syumai/workers"
-	"github.com/syumai/workers/cloudflare/fetch"
+	"github.com/syumai/workers-go"
+	"github.com/syumai/workers-go/cloudflare/fetch"
 )
 
 func main() {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		cli := fetch.NewClient()
 
-		r, err := fetch.NewRequest(req.Context(), http.MethodGet, "https://api.github.com/repos/syumai/workers/releases/latest", nil)
+		r, err := fetch.NewRequest(req.Context(), http.MethodGet, "https://api.github.com/repos/syumai/workers-go/releases/latest", nil)
 		if err != nil {
 			fmt.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)

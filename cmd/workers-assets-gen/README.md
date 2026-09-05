@@ -5,7 +5,7 @@
 
 ## Usage
 
-* See `Makefile` in [templates](https://github.com/syumai/workers/tree/main/_templates/cloudflare/worker-tinygo).
+* See `Makefile` in [templates](https://github.com/syumai/workers-go/tree/main/_templates/cloudflare/worker-tinygo).
 
 ## Supported options
 

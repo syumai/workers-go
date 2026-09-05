@@ -1,0 +1,28 @@
+# Configuration for GitHub's auto-generated release notes.
+# tagpr reads this file (releaseYAMLPath defaults to .github/release.yml)
+# to categorize merged pull requests when it builds a GitHub Release
+# for a new tag (see .tagpr: release = true, changelog = false).
+changelog:
+  exclude:
+    labels:
+      # tagpr always labels its own release pull request with "tagpr".
+      # Excluding it keeps the release notes limited to the actual
+      # changes that went into the release.
+      - tagpr
+  categories:
+    - title: Breaking Changes
+      labels:
+        - breaking
+    - title: New Features
+      labels:
+        - minor
+        - enhancement
+    - title: Bug Fixes
+      labels:
+        - bug
+    - title: Documentation
+      labels:
+        - documentation
+    - title: Other Changes
+      labels:
+        - "*"

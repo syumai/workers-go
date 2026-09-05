@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/syumai/workers/_examples/mysql-blog-server/app/model"
-	"github.com/syumai/workers/cloudflare"
-	"github.com/syumai/workers/cloudflare/sockets"
+	"github.com/syumai/workers-go/_examples/mysql-blog-server/app/model"
+	"github.com/syumai/workers-go/cloudflare"
+	"github.com/syumai/workers-go/cloudflare/sockets"
 )
 
 type articleHandler struct{}

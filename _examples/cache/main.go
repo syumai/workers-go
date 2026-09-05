@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/syumai/workers"
-	"github.com/syumai/workers/cloudflare"
-	"github.com/syumai/workers/cloudflare/cache"
+	"github.com/syumai/workers-go"
+	"github.com/syumai/workers-go/cloudflare"
+	"github.com/syumai/workers-go/cloudflare/cache"
 )
 
 func canHaveBody(method string) bool {

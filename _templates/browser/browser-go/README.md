@@ -2,7 +2,7 @@
 
 - A template for starting a browser-based HTTP server with Go.
   - This template uses Cloudflare Workers to just serve a static page.
-- This template uses [`workers`](https://github.com/syumai/workers) package to run an HTTP server.
+- This template uses [`workers`](https://github.com/syumai/workers-go) package to run an HTTP server.
 
 ## Usage
 
@@ -18,7 +18,7 @@
 - Create a new worker project using this template.
 
 ```console
-npm create cloudflare@latest -- --template github.com/syumai/workers/_templates/browser/browser-go
+npm create cloudflare@latest -- --template github.com/syumai/workers-go/_templates/browser/browser-go
 ```
 
 - Initialize a project.

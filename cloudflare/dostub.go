@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"syscall/js"
 
-	"github.com/syumai/workers/cloudflare/internal/cfruntimecontext"
-	"github.com/syumai/workers/internal/jshttp"
-	"github.com/syumai/workers/internal/jsutil"
+	"github.com/syumai/workers-go/cloudflare/internal/cfruntimecontext"
+	"github.com/syumai/workers-go/internal/jshttp"
+	"github.com/syumai/workers-go/internal/jsutil"
 )
 
 // DurableObjectNamespace represents the namespace of the durable object.

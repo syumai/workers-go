@@ -1,6 +1,6 @@
 # workers
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/syumai/workers.svg)](https://pkg.go.dev/github.com/syumai/workers)
+[![Go Reference](https://pkg.go.dev/badge/github.com/syumai/workers-go.svg)](https://pkg.go.dev/github.com/syumai/workers-go)
 [![Discord Server](https://img.shields.io/discord/1095344956421447741?logo=discord&style=social)](https://discord.gg/tYhtatRqGs)
 
 * `workers` is a package to run an HTTP server written in Go on [Cloudflare Workers](https://workers.cloudflare.com/).
@@ -38,7 +38,7 @@
 ## Installation
 
 ```
-go get github.com/syumai/workers
+go get github.com/syumai/workers-go
 ```
 
 ## Usage
@@ -81,7 +81,7 @@ For concrete examples, see `_examples` directory.
 Run the following command:
 
 ```console
-npm create cloudflare@latest -- --template github.com/syumai/workers/_templates/cloudflare/worker-go
+npm create cloudflare@latest -- --template github.com/syumai/workers-go/_templates/cloudflare/worker-go
 ```
 
 After creating the project, follow the steps below to initialize it.
@@ -127,9 +127,9 @@ To deploy a Worker, the following steps are required.
 * Build a Wasm binary.
 * Upload a Wasm binary with a JavaScript code to load and instantiate Wasm (for entry point).
 
-The [worker-go template](https://github.com/syumai/workers/tree/main/_templates/cloudflare/worker-go) contains all the required files, so I recommend using this template.
+The [worker-go template](https://github.com/syumai/workers-go/tree/main/_templates/cloudflare/worker-go) contains all the required files, so I recommend using this template.
 
-But Go (not TinyGo) with many dependencies may exceed the size limit of the Worker (3MB for free plan, 10MB for paid plan). In that case, you can use the [TinyGo template](https://github.com/syumai/workers/tree/main/_templates/cloudflare/worker-tinygo) instead.
+But Go (not TinyGo) with many dependencies may exceed the size limit of the Worker (3MB for free plan, 10MB for paid plan). In that case, you can use the [TinyGo template](https://github.com/syumai/workers-go/tree/main/_templates/cloudflare/worker-tinygo) instead.
 
 The TinyGo template requires TinyGo 0.42.0 or later. TinyGo 0.41.x cannot build `net/http` for Wasm (see [tinygo-org/tinygo#5350](https://github.com/tinygo-org/tinygo/issues/5350)).
 

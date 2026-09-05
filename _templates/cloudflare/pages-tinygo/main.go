@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/syumai/workers"
+	"github.com/syumai/workers-go"
 )
 
 func main() {

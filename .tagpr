@@ -1,0 +1,6 @@
+[tagpr]
+	releaseBranch = main
+	versionFile = -
+	vPrefix = true
+	release = true
+	changelog = false
