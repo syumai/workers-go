@@ -7,6 +7,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -15,25 +16,70 @@ import (
 
 	"github.com/syumai/workers-go"
 	"github.com/syumai/workers-go/cloudflare"
+	"github.com/syumai/workers-go/cloudflare/cron"
+	_ "github.com/syumai/workers-go/cloudflare/d1" // registers the "d1" database/sql driver
 	"github.com/syumai/workers-go/cloudflare/kv"
+	"github.com/syumai/workers-go/cloudflare/queues"
 )
 
 // kvBindingName is the KV namespace binding name declared in wrangler.jsonc.
 const kvBindingName = "KV"
 
+// r2BindingName is the R2 bucket binding name declared in wrangler.jsonc.
+const r2BindingName = "R2"
+
+// d1BindingName is both the D1 database binding name declared in
+// wrangler.jsonc and the name database/sql.Open is called with (the "d1"
+// driver resolves it against the runtime env, not a DSN).
+const d1BindingName = "DB"
+
+// queueBindingName is the Queues producer binding name declared in
+// wrangler.jsonc.
+const queueBindingName = "QUEUE"
+
 func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", handleHealthz)
 	mux.HandleFunc("/echo", handleEcho)
+	mux.HandleFunc("/cf", handleCF)
 	mux.HandleFunc("/stream", handleStream)
 	mux.HandleFunc("/fixed", handleFixed)
 	mux.HandleFunc("/env/", handleEnv)
 	mux.HandleFunc("/kv", handleKVList)
 	mux.HandleFunc("/kv/", handleKVItem)
+	mux.HandleFunc("/r2", handleR2List)
+	mux.HandleFunc("/r2/", handleR2Item)
+	mux.HandleFunc("/d1/exec", handleD1Exec)
+	mux.HandleFunc("/d1/query", handleD1Query)
+	mux.HandleFunc("/queue/send", handleQueueSend)
+	mux.HandleFunc("/queue/received", handleQueueReceived)
+	mux.HandleFunc("/waituntil", handleWaitUntil)
+	mux.HandleFunc("/waituntil/result", handleWaitUntilResult)
 
 	workers.ServeNonBlock(mux)
+	queues.ConsumeNonBlock(consumeQueue)
+	cron.ScheduleTaskNonBlock(cronTask)
+
 	workers.Ready()
 	<-workers.Done()
+}
+
+// d1DB lazily holds the *sql.DB opened against d1BindingName. sql.Open
+// itself never touches the runtime (it just records the driver name), so
+// creating it once and reusing it across requests is safe and avoids
+// re-resolving the binding on every call.
+var d1DB *sql.DB
+
+func getD1DB() (*sql.DB, error) {
+	if d1DB != nil {
+		return d1DB, nil
+	}
+	db, err := sql.Open("d1", d1BindingName)
+	if err != nil {
+		return nil, err
+	}
+	d1DB = db
+	return db, nil
 }
 
 func handleHealthz(w http.ResponseWriter, r *http.Request) {
