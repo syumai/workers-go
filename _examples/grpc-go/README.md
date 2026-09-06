@@ -24,11 +24,11 @@ The gzip'd Wasm binary for this example is around 4-5 MB (grpc-go + `x/net/http2
 ```
 npm install     # install wrangler locally (see Requirements)
 npm run build   # build Go Wasm binary
-npm run dev     # run dev server (npx wrangler dev)
+npm run dev     # run dev server (npx wrangler dev --compatibility-flags experimental)
 npm run deploy  # deploy worker (npx wrangler deploy)
 ```
 
-`npm run dev` starts `wrangler dev`, which listens for TCP connections on port 50052 (see `wrangler.jsonc`'s `connect` config) and forwards them to the Worker's `connect()` handler, where `grpc.Server.Serve` handles them.
+`npm run dev` starts `wrangler dev --compatibility-flags experimental`, which listens for TCP connections on port 50052 (see `wrangler.jsonc`'s `connect` config) and forwards them to the Worker's `connect()` handler, where `grpc.Server.Serve` handles them.
 
 ### Verifying it works
 
@@ -57,7 +57,7 @@ make generate
 
 ## Notes
 
-- Requires the `experimental` compatibility flag and a `connect` trigger entry in `wrangler.jsonc`.
+- `connect()` requires the `experimental` compatibility flag and a `connect` trigger entry in `wrangler.jsonc`. `wrangler deploy` rejects the flag (error code 10021), so it's passed on the command line for local development only (see `npm run dev` above and `wrangler.jsonc`'s comment). `npm run deploy`/`wrangler deploy` works with the config as-is; since this example serves gRPC only through `connect()` (no `fetch()` handler), it isn't reachable in production unless your account is enrolled in the inbound-sockets private beta (Spectrum) — see [`grpc-connect`](../grpc-connect) if you also want an HTTPS-reachable endpoint after deploying.
 - Inbound TCP sockets are currently in **private beta** for production deployments (Spectrum-fronted Workers); `wrangler dev` works without enrollment.
 - Inbound sockets are **not TLS-terminated** by the platform: gRPC clients must connect in plaintext, e.g. `grpcurl -plaintext`, grpc-go's `insecure.NewCredentials()`.
 - One TCP connection = one Worker invocation, for as long as the gRPC client holds the connection open. This example uses grpc-go's default keepalive/idle settings; if you need `wrangler dev` (or the runtime) to reclaim idle connections sooner, configure `grpc.NewServer(grpc.KeepaliveParams(keepalive.ServerParameters{MaxConnectionIdle: ...}))`.

@@ -2,7 +2,10 @@
   "name": "<TBD>",
   "main": "./build/worker.mjs",
   "compatibility_date": "<TBD>",
-  "compatibility_flags": ["experimental"],
+  // The "experimental" compatibility flag is required by `connect()` (inbound TCP
+  // sockets), but `wrangler deploy` rejects it (error code 10021). It's passed on
+  // the command line for `wrangler dev` instead (see package.json's `dev`/`start`
+  // scripts).
   "connect": [{ "protocol": "tcp", "port": 50051 }],
   "build": {
     "command": "npm run build"

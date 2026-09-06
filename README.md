@@ -107,20 +107,25 @@ func main() {
 
 `grpc.Server.Serve(sockets.Listen())` works the same way if you'd rather bring [grpc-go](https://github.com/grpc/grpc-go) service implementations and interceptors.
 
-`wrangler.jsonc` needs the `experimental` compatibility flag and a `connect` trigger entry, and `wrangler dev` needs to be >= 4.125.0 to accept local TCP connections:
+`wrangler.jsonc` needs a `connect` trigger entry, and `wrangler dev` needs to be >= 4.125.0 to accept local TCP connections:
 
 ```jsonc
 {
-  "compatibility_flags": ["experimental"],
   "connect": [{ "protocol": "tcp", "port": 50051 }]
 }
+```
+
+`connect()` also needs the `experimental` compatibility flag, but `wrangler deploy` rejects that flag in the config file (error code 10021), so pass it on the `wrangler dev` command line instead, and leave it out of `wrangler.jsonc`:
+
+```
+wrangler dev --compatibility-flags experimental
 ```
 
 See the [`grpc-connect`](_examples/grpc-connect) (std `net/http` h2c + [connect-go](https://connectrpc.com/docs/go/getting-started), recommended) and [`grpc-go`](_examples/grpc-go) (grpc-go) examples, and the [`grpc-go` template](_templates/cloudflare/grpc-go), for full working projects.
 
 Caveats:
 
-* Inbound TCP sockets are currently in **private beta** for production deployments (Spectrum-fronted Workers); `wrangler dev` works without enrollment.
+* Inbound TCP sockets are currently in **private beta** for production deployments (Spectrum-fronted Workers); `wrangler dev` works without enrollment. `wrangler deploy` works with the config above as-is, but the `connect()` path is unreachable in production until your account is enrolled — the `fetch()` path (if the Worker has one) is unaffected.
 * Inbound sockets are **not TLS-terminated** by the platform — clients (including gRPC clients) connect in plaintext (h2c), e.g. `grpcurl -plaintext`. Terminate TLS yourself with `crypto/tls` if you need it.
 * One TCP connection = one Worker invocation. A long-lived gRPC connection keeps that invocation alive for as long as the client holds it open.
 * gRPC (and any HTTP/2-based protocol) requires Go, not TinyGo: TinyGo's `net/http` has no HTTP/2 support.

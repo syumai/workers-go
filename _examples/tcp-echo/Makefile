@@ -1,6 +1,6 @@
 .PHONY: dev
 dev:
-	wrangler dev
+	wrangler dev --compatibility-flags experimental
 
 .PHONY: build
 build:

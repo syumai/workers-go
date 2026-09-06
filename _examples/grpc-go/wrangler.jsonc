@@ -7,7 +7,10 @@
   "name": "grpc-go",
   "main": "./build/worker.mjs",
   "compatibility_date": "2026-03-01",
-  "compatibility_flags": ["experimental"],
+  // The "experimental" compatibility flag is required by `connect()` (inbound TCP
+  // sockets), but `wrangler deploy` rejects it (error code 10021). It's passed on
+  // the command line for `wrangler dev` instead (see package.json's `dev` script
+  // and the Makefile's `dev` target).
   "connect": [{ "protocol": "tcp", "port": 50052 }],
   "build": {
     "command": "make build"

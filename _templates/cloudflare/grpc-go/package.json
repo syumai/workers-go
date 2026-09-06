@@ -5,8 +5,8 @@
   "scripts": {
     "build": "go run github.com/syumai/workers-go/cmd/workers-assets-gen -mode=go && GOOS=js GOARCH=wasm go build -ldflags=\"-s -w\" -o ./build/app.wasm .",
     "deploy": "wrangler deploy",
-    "dev": "wrangler dev",
-    "start": "wrangler dev",
+    "dev": "wrangler dev --compatibility-flags experimental",
+    "start": "wrangler dev --compatibility-flags experimental",
     "generate": "buf generate"
   },
   "devDependencies": {

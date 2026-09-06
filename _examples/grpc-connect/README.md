@@ -25,11 +25,11 @@ The gzip'd Wasm binary for this example is around 4-5 MB (connect-go + protobuf 
 ```
 npm install     # install wrangler locally (see Requirements)
 npm run build   # build Go Wasm binary
-npm run dev     # run dev server (npx wrangler dev)
+npm run dev     # run dev server (npx wrangler dev --compatibility-flags experimental)
 npm run deploy  # deploy worker (npx wrangler deploy)
 ```
 
-`npm run dev` starts `wrangler dev`, which:
+`npm run dev` starts `wrangler dev --compatibility-flags experimental`, which:
 
 - serves `fetch()` (Connect / gRPC-Web / gRPC-over-HTTP) on `http://localhost:8787`.
 - listens for TCP connections on port 50051 (see `wrangler.jsonc`'s `connect` config) and forwards them to the Worker's `connect()` handler, where native gRPC (h2c) is served.
@@ -77,9 +77,27 @@ npm run generate   # runs `buf generate` (see buf.gen.yaml)
 make generate
 ```
 
+## Deploying
+
+`npm run deploy` (or `wrangler deploy`) works with `wrangler.jsonc` as-is — no changes needed. `wrangler deploy` rejects the `experimental` compatibility flag (error code 10021), so it's not in the config file; that also means the `connect()`/inbound-TCP path is not reachable in production unless your account is enrolled in the inbound-sockets private beta (Spectrum). The `fetch()` path is unaffected and is reachable at your `*.workers.dev` URL right away.
+
+Connect protocol and gRPC-Web both work over HTTPS at the deployed URL:
+
+```
+$ buf curl --protocol grpcweb --schema proto -d '{"name":"x"}' \
+    https://grpc-connect.<subdomain>.workers.dev/greet.v1.GreeterService/SayHello
+{"name": "Hello, x!"}
+
+$ curl -s -X POST https://grpc-connect.<subdomain>.workers.dev/greet.v1.GreeterService/SayHello \
+    -H 'Content-Type: application/json' -d '{"name":"x"}'
+{"name":"Hello, x!"}
+```
+
+Native gRPC (`--protocol grpc`) to a `*.workers.dev` URL returns HTTP 403: Cloudflare's gRPC→gRPC-Web translation is only available on zones with gRPC enabled, which requires a custom domain.
+
 ## Notes
 
-- Requires the `experimental` compatibility flag and a `connect` trigger entry in `wrangler.jsonc`.
+- `connect()` requires the `experimental` compatibility flag and a `connect` trigger entry in `wrangler.jsonc`. `wrangler deploy` rejects the flag, so it's passed on the command line for local development only (see `npm run dev` above and `wrangler.jsonc`'s comment); `wrangler deploy` works as-is (see "Deploying" above).
 - Inbound TCP sockets are currently in **private beta** for production deployments (Spectrum-fronted Workers); `wrangler dev` works without enrollment.
 - Inbound sockets are **not TLS-terminated** by the platform: gRPC clients must connect in plaintext (h2c), e.g. `grpcurl -plaintext`, grpc-go's `insecure.NewCredentials()`.
 - One TCP connection = one Worker invocation. A long-lived gRPC connection (multiplexing many RPCs) keeps that invocation alive for as long as the client holds the connection open.

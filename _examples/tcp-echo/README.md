@@ -20,7 +20,7 @@ make build  # build Go Wasm binary
 make deploy # deploy worker
 ```
 
-`make dev` starts `wrangler dev`, which listens for TCP connections on port 4242 (see `wrangler.jsonc`'s `connect` config) and forwards them to the Worker's `connect()` handler. Try it with:
+`make dev` starts `wrangler dev --compatibility-flags experimental`, which listens for TCP connections on port 4242 (see `wrangler.jsonc`'s `connect` config) and forwards them to the Worker's `connect()` handler. Try it with:
 
 ```
 nc localhost 4242
@@ -30,6 +30,6 @@ Anything you type should be echoed back until you close the connection.
 
 ## Notes
 
-- Requires the `experimental` compatibility flag (see `wrangler.jsonc`).
+- `connect()` requires the `experimental` compatibility flag, but `wrangler deploy` rejects that flag in the config file, so `make dev` passes it on the command line instead (see the Makefile and `wrangler.jsonc`). `make deploy`/`wrangler deploy` works as-is, without the flag.
 - Inbound TCP sockets are currently in private beta for production deployments (Spectrum-fronted Workers); `wrangler dev` works without enrollment.
 - Inbound sockets are not TLS-terminated by the platform.
