@@ -1,0 +1,16 @@
+package: analytics
+doc: |
+  Package analytics provides the Analytics Engine binding
+  (https://developers.cloudflare.com/analytics/analytics-engine/).
+include:
+  - AnalyticsEngineDataset
+  - AnalyticsEngineDataPoint
+bindings:
+  - AnalyticsEngineDataset
+types:
+  # indexes/blobs are (ArrayBuffer | string)[] in the .d.ts; cfgen has no
+  # general union-of-refs handling, so this collapses both element types to
+  # string (ArrayBuffer index/blob values are not supported by this
+  # generated binding).
+  AnalyticsEngineDataPoint.indexes: "[]string"
+  AnalyticsEngineDataPoint.blobs: "[]string"

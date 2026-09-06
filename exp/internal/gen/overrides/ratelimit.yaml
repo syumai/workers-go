@@ -1,0 +1,13 @@
+package: ratelimit
+doc: |
+  Package ratelimit provides the Rate Limiting binding
+  (https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/).
+
+  This is the minimal-configuration reference package for cfgen: it uses no
+  renames, type overrides, or overloads.
+include:
+  - RateLimit
+  - RateLimitOptions
+  - RateLimitOutcome
+bindings:
+  - RateLimit

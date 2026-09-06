@@ -1,0 +1,22 @@
+package: widgets
+doc: |
+  Package widgets is a synthetic fixture package used only by cfgen's
+  golden test. It exercises: a handle type, a data type, a string-literal
+  alias enum, a Promise-returning method, a Record-returning method, an
+  array field, an optional field, a rename, a types override, and a
+  handwritten method.
+include:
+  - Widget
+  - WidgetInfo
+  - WidgetStatus
+  - WidgetFactory
+bindings:
+  - Widget
+rename:
+  WidgetInfo.widget_name: Name
+types:
+  WidgetInfo.cacheTtl: "*int"
+exclude:
+  - WidgetInfo.internalNote
+handwritten:
+  - WidgetFactory.create
