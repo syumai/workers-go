@@ -5,7 +5,7 @@
 
 ## Notice
 
-- Go (not TinyGo) with many dependencies may exceed the size limit of the Worker (3MB for free plan, 10MB for paid plan). In that case, you can use the [TinyGo template](https://github.com/syumai/workers-go/tree/main/_templates/cloudflare/worker-tinygo) instead.
+- Go (not TinyGo) with many dependencies may exceed the size limit of the Worker (64 MiB uncompressed, on all plans). In that case, you can use the [TinyGo template](https://github.com/syumai/workers-go/tree/main/_templates/cloudflare/worker-tinygo) instead.
 
 ## Usage
 
