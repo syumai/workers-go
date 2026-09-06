@@ -1,0 +1,10 @@
+{
+  "name": "<TBD>",
+  "main": "./build/worker.mjs",
+  "compatibility_date": "<TBD>",
+  "compatibility_flags": ["experimental"],
+  "connect": [{ "protocol": "tcp", "port": 50051 }],
+  "build": {
+    "command": "npm run build"
+  }
+}

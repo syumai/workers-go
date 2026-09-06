@@ -63,8 +63,8 @@ func init() {
 				}
 
 				ctx := runtimecontext.New(context.Background(), sockVal)
-				deadline := time.Now().Add(defaultDeadline)
-				sock := newSocket(ctx, sockVal, deadline, deadline)
+				// A zero deadline means "no timeout" (see Socket.Read/Write).
+				sock := newSocket(ctx, sockVal, time.Time{}, time.Time{})
 				conn := &inboundConn{Socket: sock}
 				conn.onClose = func() {
 					defaultListener.connClosed()

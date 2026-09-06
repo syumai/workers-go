@@ -32,6 +32,7 @@
 * [x] Cron Triggers
 * [x] TCP Sockets
 * [x] Inbound TCP Sockets (connect handler)
+* [x] gRPC (over inbound TCP sockets, and over fetch via connect-go)
 * [x] Queues
   - [x] Producer
   - [x] Consumer
@@ -75,6 +76,55 @@ func main() {
 ```
 
 For concrete examples, see `_examples` directory.
+
+## Inbound TCP sockets and gRPC
+
+Workers can also receive raw inbound TCP connections through the `connect()` handler. `github.com/syumai/workers-go/cloudflare/sockets` exposes the connection delivered to `connect()` as a `net.Listener`, so any Go server that accepts a `net.Listener` (`net/http`, `grpc.Server`, or a hand-rolled protocol) runs unmodified. Each TCP connection is one Worker invocation, so `sockets.Serve`/`sockets.Listen()` follow the same ready/block convention as `workers.Serve`:
+
+```go
+func main() {
+	sockets.Serve(sockets.HandlerFunc(func(ctx context.Context, conn net.Conn) {
+		io.Copy(conn, conn) // echo until the client closes
+	}))
+}
+```
+
+Because it's a `net.Listener`, this is also the recipe for gRPC on Workers, without a translation layer:
+
+```go
+func main() {
+	mux := http.NewServeMux()
+	mux.Handle(greetv1connect.NewGreeterServiceHandler(&greeter{}))
+	workers.ServeNonBlock(mux) // fetch(): Connect / gRPC-Web / gRPC-over-HTTP
+
+	var protos http.Protocols
+	protos.SetHTTP1(true)
+	protos.SetUnencryptedHTTP2(true) // h2c: gRPC clients connect with prior knowledge
+	srv := &http.Server{Handler: mux, Protocols: &protos}
+	log.Fatal(srv.Serve(sockets.Listen())) // connect(): native gRPC over the inbound socket
+}
+```
+
+`grpc.Server.Serve(sockets.Listen())` works the same way if you'd rather bring [grpc-go](https://github.com/grpc/grpc-go) service implementations and interceptors.
+
+`wrangler.jsonc` needs the `experimental` compatibility flag and a `connect` trigger entry, and `wrangler dev` needs to be >= 4.125.0 to accept local TCP connections:
+
+```jsonc
+{
+  "compatibility_flags": ["experimental"],
+  "connect": [{ "protocol": "tcp", "port": 50051 }]
+}
+```
+
+See the [`grpc-connect`](_examples/grpc-connect) (std `net/http` h2c + [connect-go](https://connectrpc.com/docs/go/getting-started), recommended) and [`grpc-go`](_examples/grpc-go) (grpc-go) examples, and the [`grpc-go` template](_templates/cloudflare/grpc-go), for full working projects.
+
+Caveats:
+
+* Inbound TCP sockets are currently in **private beta** for production deployments (Spectrum-fronted Workers); `wrangler dev` works without enrollment.
+* Inbound sockets are **not TLS-terminated** by the platform — clients (including gRPC clients) connect in plaintext (h2c), e.g. `grpcurl -plaintext`. Terminate TLS yourself with `crypto/tls` if you need it.
+* One TCP connection = one Worker invocation. A long-lived gRPC connection keeps that invocation alive for as long as the client holds it open.
+* gRPC (and any HTTP/2-based protocol) requires Go, not TinyGo: TinyGo's `net/http` has no HTTP/2 support.
+* Go Wasm binaries with connect-go/grpc-go and protobuf are large (roughly 4-5MB gzip'd), which exceeds the Free plan's 3MB limit — a paid plan (10MB gzip'd) is required.
 
 ## Quick Start
 

@@ -1,0 +1,15 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "grpc-connect",
+  "main": "./build/worker.mjs",
+  "compatibility_date": "2026-03-01",
+  "compatibility_flags": ["experimental"],
+  "connect": [{ "protocol": "tcp", "port": 50051 }],
+  "build": {
+    "command": "make build"
+  }
+}

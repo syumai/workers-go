@@ -63,11 +63,21 @@ type Socket struct {
 
 var _ net.Conn = (*Socket)(nil)
 
+// withOptionalDeadline is like context.WithDeadline, except that a zero
+// deadline (the net.Conn convention for "no deadline") does not produce an
+// already-expired context; it just derives a cancelable context from ctx.
+func withOptionalDeadline(ctx context.Context, deadline time.Time) (context.Context, context.CancelFunc) {
+	if deadline.IsZero() {
+		return context.WithCancel(ctx)
+	}
+	return context.WithDeadline(ctx, deadline)
+}
+
 // Read reads data from the connection.
 // Read can be made to time out and return an error after a fixed
 // time limit; see SetDeadline and SetReadDeadline.
 func (t *Socket) Read(b []byte) (n int, err error) {
-	ctx, cancel := context.WithDeadline(t.ctx, t.readDeadline)
+	ctx, cancel := withOptionalDeadline(t.ctx, t.readDeadline)
 	defer cancel()
 	done := make(chan struct{})
 	go func() {
@@ -86,7 +96,7 @@ func (t *Socket) Read(b []byte) (n int, err error) {
 // Write can be made to time out and return an error after a fixed
 // time limit; see SetDeadline and SetWriteDeadline.
 func (t *Socket) Write(b []byte) (n int, err error) {
-	ctx, cancel := context.WithDeadline(t.ctx, t.writeDeadline)
+	ctx, cancel := withOptionalDeadline(t.ctx, t.writeDeadline)
 	defer cancel()
 	done := make(chan struct{})
 	go func() {
