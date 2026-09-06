@@ -21,12 +21,39 @@ globalThis.crypto ??= require("crypto");
 
 require("./wasm_exec");
 
+// same definition as cmd/workers-assets-gen/assets/common/worker.mjs, needed
+// by internal/jsutil.TryCatch and cloudflare/sockets.Connect.
+globalThis.tryCatch = (fn) => {
+	try {
+		return {
+			result: fn(),
+		};
+	} catch (e) {
+		return {
+			error: e,
+		};
+	}
+};
+
 const go = new Go();
 go.argv = process.argv.slice(2);
 // to prevent `total length of command line and environment variables exceeds limit` error, ignore env.
 // go.env = Object.assign({ TMPDIR: require("os").tmpdir() }, process.env);
 go.exit = process.exit;
-WebAssembly.instantiate(fs.readFileSync(process.argv[2]), go.importObject).then((result) => {
+// the patched wasm_exec.js reads context.binding (see internal/jsutil), and
+// go.run(result.instance, context) below passes this object as context.
+const context = { binding: {} };
+// workers.ready is required by //go:wasmimport workers ready; record how
+// many times it's called so tests can assert on it.
+const importObject = {
+	...go.importObject,
+	workers: {
+		ready: () => {
+			context.readyCount = (context.readyCount ?? 0) + 1;
+		},
+	},
+};
+WebAssembly.instantiate(fs.readFileSync(process.argv[2]), importObject).then((result) => {
 	process.on("exit", (code) => { // Node.js exits if no event handler is pending
 		if (code === 0 && !go.exited) {
 			// deadlock, make Go print error and stack traces
@@ -34,8 +61,7 @@ WebAssembly.instantiate(fs.readFileSync(process.argv[2]), go.importObject).then(
 			go._resume();
 		}
 	});
-	// the patched wasm_exec.js reads context.binding (see internal/jsutil).
-	return go.run(result.instance, { binding: {} });
+	return go.run(result.instance, context);
 }).catch((err) => {
 	console.error(err);
 	process.exit(1);

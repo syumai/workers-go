@@ -19,7 +19,18 @@ regenerate it. Do not hand-edit these files; edit the generator instead.
   - it no longer forwards the full `process.env` to Go (`go.env = ...`),
     since doing so can make Go fail with `total length of command line and
     environment variables exceeds limit`.
-  - it calls `go.run(result.instance, { binding: {} })`, passing the
-    `context` object that the patched `wasm_exec.js` above expects.
+  - it defines a `context = { binding: {} }` object and calls
+    `go.run(result.instance, context)`, passing the `context` object that the
+    patched `wasm_exec.js` above expects.
+  - it adds a `workers: { ready }` entry to the `importObject` passed to
+    `WebAssembly.instantiate`, matching the `//go:wasmimport workers ready`
+    import used by `workers.Ready()`. Without it, instantiation fails with a
+    `LinkError` as soon as anything reachable from the test binary references
+    `Ready()`. Each call increments `context.readyCount`, so tests can assert
+    on how many times it fired.
+  - it polyfills `globalThis.tryCatch` with the same definition as
+    `cmd/workers-assets-gen/assets/common/worker.mjs`, since Node has no such
+    global and `internal/jsutil.TryCatch` / `cloudflare/sockets.Connect` rely
+    on it.
 - `go_js_wasm_exec` — Go's `lib/wasm/go_js_wasm_exec`, copied verbatim and
   made executable.
