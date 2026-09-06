@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# mirror-tests/run.sh generates a mirror module with internal/cmd/genforward
-# and verifies it, per the design in
+# internal/cmd/genforward/mirror-tests/run.sh generates a mirror module with
+# internal/cmd/genforward and verifies it, per the design in
 # https://github.com/syumai/workers/issues/173 ("Design of the mirror").
 #
 # It must be run from anywhere inside the repository; it resolves the repo
@@ -8,7 +8,7 @@
 set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-repo_root="$(cd "$script_dir/.." && pwd)"
+repo_root="$(cd "$script_dir/../../../.." && pwd)"
 cd "$repo_root"
 
 # The source module path is never hardcoded: it's read from go.mod so this
@@ -71,7 +71,7 @@ check "mirror: go build . (host, root package only)" \
 check "mirror: static files copied (README.md, cmd/workers-assets-gen/main.go, LICENSE.md)" \
   bash -c "[ -f '$tmp_mirror/README.md' ] && [ -f '$tmp_mirror/cmd/workers-assets-gen/main.go' ] && [ -f '$tmp_mirror/LICENSE.md' ]"
 
-echo "=== building mirror-tests/oldpath (mirror-only import) ==="
+echo "=== building internal/cmd/genforward/mirror-tests/oldpath (mirror-only import) ==="
 rm -rf "$tmp_oldpath"
 cp -r "$script_dir/oldpath" "$tmp_oldpath"
 (cd "$tmp_oldpath" && go mod edit -replace "$mirror_module=$tmp_mirror")
@@ -84,7 +84,7 @@ cp -r "$script_dir/oldpath" "$tmp_oldpath"
 check "oldpath: GOOS=js GOARCH=wasm go build ./..." \
   bash -c "cd '$tmp_oldpath' && GOOS=js GOARCH=wasm go build ./..."
 
-echo "=== building mirror-tests/mixed (mirror + source import) ==="
+echo "=== building internal/cmd/genforward/mirror-tests/mixed (mirror + source import) ==="
 rm -rf "$tmp_mixed"
 cp -r "$script_dir/mixed" "$tmp_mixed"
 (cd "$tmp_mixed" && go mod edit -replace "$mirror_module=$tmp_mirror")
