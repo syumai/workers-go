@@ -26,7 +26,11 @@ go.argv = process.argv.slice(2);
 // to prevent `total length of command line and environment variables exceeds limit` error, ignore env.
 // go.env = Object.assign({ TMPDIR: require("os").tmpdir() }, process.env);
 go.exit = process.exit;
-WebAssembly.instantiate(fs.readFileSync(process.argv[2]), go.importObject).then((result) => {
+// workers.ready is normally supplied by worker.mjs; stub it here so
+// packages that call workers.Ready() (e.g. cloudflare/sockets) can be
+// instantiated and tested under this runner too.
+const importObject = { ...go.importObject, workers: { ready: () => {} } };
+WebAssembly.instantiate(fs.readFileSync(process.argv[2]), importObject).then((result) => {
 	process.on("exit", (code) => { // Node.js exits if no event handler is pending
 		if (code === 0 && !go.exited) {
 			// deadlock, make Go print error and stack traces

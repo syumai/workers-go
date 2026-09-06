@@ -1,0 +1,18 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "grpc-go",
+  "main": "./build/worker.mjs",
+  "compatibility_date": "2026-03-01",
+  // The "experimental" compatibility flag is required by `connect()` (inbound TCP
+  // sockets), but `wrangler deploy` rejects it (error code 10021). It's passed on
+  // the command line for `wrangler dev` instead (see package.json's `dev` script
+  // and the Makefile's `dev` target).
+  "connect": [{ "protocol": "tcp", "port": 50052 }],
+  "build": {
+    "command": "make build"
+  }
+}

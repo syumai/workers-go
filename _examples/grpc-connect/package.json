@@ -1,0 +1,14 @@
+{
+  "name": "grpc-connect",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev --compatibility-flags experimental",
+    "build": "make build",
+    "deploy": "wrangler deploy",
+    "generate": "buf generate"
+  },
+  "devDependencies": {
+    "wrangler": "^4.125.0"
+  }
+}
