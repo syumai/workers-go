@@ -24,7 +24,8 @@ type Object struct {
 	CustomMetadata map[string]string
 	// Body is a body of Object.
 	// This value is nil for the result of the `Head` or `Put` method.
-	Body io.Reader
+	// The caller is responsible for closing the Body when it is not nil.
+	Body io.ReadCloser
 }
 
 // TODO: implement
@@ -52,7 +53,7 @@ func toObject(v js.Value) (*Object, error) {
 		return nil, fmt.Errorf("error converting httpMetadata: %w", err)
 	}
 	bodyVal := v.Get("body")
-	var body io.Reader
+	var body io.ReadCloser
 	if !bodyVal.IsUndefined() {
 		body = jsutil.ConvertReadableStreamToReadCloser(v.Get("body"))
 	}

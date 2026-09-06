@@ -84,7 +84,10 @@ func (s *server) get(w http.ResponseWriter, key string) {
 		contentType = imgObj.HTTPMetadata.ContentType
 	}
 	w.Header().Set("Content-Type", contentType)
-	io.Copy(w, imgObj.Body)
+	if imgObj.Body != nil {
+		defer imgObj.Body.Close()
+		io.Copy(w, imgObj.Body)
+	}
 }
 
 func (s *server) delete(w http.ResponseWriter, key string) {

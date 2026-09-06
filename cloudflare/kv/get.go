@@ -38,7 +38,8 @@ func (ns *Namespace) GetString(key string, opts *GetOptions) (string, error) {
 
 // GetReader gets stream value by the specified key.
 //   - if a network error happens, returns error.
-func (ns *Namespace) GetReader(key string, opts *GetOptions) (io.Reader, error) {
+//   - the caller is responsible for closing the returned io.ReadCloser.
+func (ns *Namespace) GetReader(key string, opts *GetOptions) (io.ReadCloser, error) {
 	p := ns.instance.Call("get", key, opts.toJS("stream"))
 	v, err := jsutil.AwaitPromise(p)
 	if err != nil {

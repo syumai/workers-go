@@ -46,7 +46,10 @@ func handler(w http.ResponseWriter, req *http.Request) {
 		contentType = imgObj.HTTPMetadata.ContentType
 	}
 	w.Header().Set("Content-Type", contentType)
-	io.Copy(w, imgObj.Body)
+	if imgObj.Body != nil {
+		defer imgObj.Body.Close()
+		io.Copy(w, imgObj.Body)
+	}
 }
 
 func main() {
