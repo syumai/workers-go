@@ -5,7 +5,7 @@
 
 ## Notice
 
-- Go (not TinyGo) with many dependencies may exceed the size limit of the Worker (64 MiB uncompressed, on all plans). In that case, you can use the [TinyGo template](https://github.com/syumai/workers-go/tree/main/_templates/cloudflare/worker-tinygo) instead.
+- If you want a smaller Wasm binary, you can use the [TinyGo template](https://github.com/syumai/workers-go/tree/main/_templates/cloudflare/worker-tinygo) instead.
 
 ## Usage
 
