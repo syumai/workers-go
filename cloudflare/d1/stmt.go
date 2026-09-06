@@ -33,21 +33,28 @@ func (s *stmt) Exec([]driver.Value) (driver.Result, error) {
 	return nil, errors.New("d1: Exec is deprecated and not implemented")
 }
 
-// ExecContext executes prepared statement.
-// Given []driver.NamedValue's `Name` field will be ignored because Cloudflare D1 client doesn't support it.
-func (s *stmt) ExecContext(_ context.Context, args []driver.NamedValue) (driver.Result, error) {
+// convertArgs converts []driver.NamedValue into a []any suitable to be passed
+// as variadic arguments to the JS `bind` method. Each arg's `Name` field is
+// ignored because Cloudflare D1 client doesn't support it. []byte values are
+// copied into a JS Uint8Array; every other value is passed through as-is.
+func convertArgs(args []driver.NamedValue) []any {
 	argValues := make([]any, len(args))
 	for i, arg := range args {
 		if src, ok := arg.Value.([]byte); ok {
 			dst := jsutil.Uint8ArrayClass.New(len(src))
-			if n := js.CopyBytesToJS(dst, src); n != len(src) {
-				return nil, errors.New("incomplete copy into Uint8Array")
-			}
+			js.CopyBytesToJS(dst, src)
 			argValues[i] = dst
 		} else {
 			argValues[i] = arg.Value
 		}
 	}
+	return argValues
+}
+
+// ExecContext executes prepared statement.
+// Given []driver.NamedValue's `Name` field will be ignored because Cloudflare D1 client doesn't support it.
+func (s *stmt) ExecContext(_ context.Context, args []driver.NamedValue) (driver.Result, error) {
+	argValues := convertArgs(args)
 	resultPromise := s.stmtObj.Call("bind", argValues...).Call("run")
 	resultObj, err := jsutil.AwaitPromise(resultPromise)
 	if err != nil {
@@ -63,18 +70,7 @@ func (s *stmt) Query([]driver.Value) (driver.Rows, error) {
 }
 
 func (s *stmt) QueryContext(_ context.Context, args []driver.NamedValue) (driver.Rows, error) {
-	argValues := make([]any, len(args))
-	for i, arg := range args {
-		if src, ok := arg.Value.([]byte); ok {
-			dst := jsutil.Uint8ArrayClass.New(len(src))
-			if n := js.CopyBytesToJS(dst, src); n != len(src) {
-				return nil, errors.New("incomplete copy into Uint8Array")
-			}
-			argValues[i] = dst
-		} else {
-			argValues[i] = arg.Value
-		}
-	}
+	argValues := convertArgs(args)
 	resultPromise := s.stmtObj.Call("bind", argValues...).Call("raw", map[string]any{"columnNames": true})
 	rowsArray, err := jsutil.AwaitPromise(resultPromise)
 	if err != nil {
