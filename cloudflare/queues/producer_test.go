@@ -1,12 +1,16 @@
+//go:build js && wasm
+
 package queues
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"syscall/js"
 	"testing"
 	"time"
 
+	"github.com/syumai/workers-go/internal/jstest"
 	"github.com/syumai/workers-go/internal/jsutil"
 )
 
@@ -136,5 +140,90 @@ func TestSendBatch_Options(t *testing.T) {
 	err := producer.SendBatch(batch, WithBatchDelaySeconds(5*time.Second))
 	if err != nil {
 		t.Fatalf("SendBatch failed: %v", err)
+	}
+}
+
+func TestProducer_SendBytes(t *testing.T) {
+	want := []byte{1, 2, 3}
+	validation := func(message js.Value, options js.Value) error {
+		if message.Type() != js.TypeObject {
+			return fmt.Errorf("message body type = %v, want object (Uint8Array)", message.Type())
+		}
+		got := jstest.Bytes(t, message)
+		if !bytes.Equal(got, want) {
+			return fmt.Errorf("message body = %v, want %v", got, want)
+		}
+		if ct := options.Get("contentType").String(); ct != "bytes" {
+			return fmt.Errorf("content type = %q, want %q", ct, "bytes")
+		}
+		return nil
+	}
+
+	producer := validatingProducer(t, validation)
+	if err := producer.SendBytes(want); err != nil {
+		t.Fatalf("SendBytes failed: %v", err)
+	}
+}
+
+func TestProducer_SendV8(t *testing.T) {
+	raw := js.ValueOf(map[string]any{"foo": "bar"})
+	validation := func(message js.Value, options js.Value) error {
+		if !message.Equal(raw) {
+			return errors.New("message body must be the raw JS value passed to SendV8")
+		}
+		if ct := options.Get("contentType").String(); ct != "v8" {
+			return fmt.Errorf("content type = %q, want %q", ct, "v8")
+		}
+		return nil
+	}
+
+	producer := validatingProducer(t, validation)
+	if err := producer.SendV8(raw); err != nil {
+		t.Fatalf("SendV8 failed: %v", err)
+	}
+}
+
+func TestProducer_SendText_error(t *testing.T) {
+	sendFn := jstest.Func(t, func(_ js.Value, _ []js.Value) any {
+		return jstest.Rejected("send failed")
+	})
+
+	queue := jsutil.NewObject()
+	queue.Set("send", sendFn)
+	producer := &Producer{queue: queue}
+
+	if err := producer.SendText("hello"); err == nil {
+		t.Fatalf("SendText() error = nil, want a non-nil error")
+	}
+}
+
+func TestNewProducer_undefined(t *testing.T) {
+	jstest.SetEnv(t, map[string]any{})
+
+	if _, err := NewProducer("Q"); err == nil {
+		t.Fatalf("NewProducer() error = nil, want a non-nil error")
+	}
+}
+
+func TestNewProducer_send(t *testing.T) {
+	var got string
+	sendFn := jstest.Func(t, func(_ js.Value, args []js.Value) any {
+		got = args[0].String()
+		return jstest.Resolved(js.Undefined())
+	})
+
+	queue := jsutil.NewObject()
+	queue.Set("send", sendFn)
+	jstest.SetEnv(t, map[string]any{"Q": queue})
+
+	p, err := NewProducer("Q")
+	if err != nil {
+		t.Fatalf("NewProducer() error = %v", err)
+	}
+	if err := p.SendText("hello"); err != nil {
+		t.Fatalf("SendText() error = %v", err)
+	}
+	if got != "hello" {
+		t.Errorf("send() received body = %q, want %q", got, "hello")
 	}
 }

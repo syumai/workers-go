@@ -1,0 +1,45 @@
+{
+  "name": "kitchensink",
+  "main": "./build/worker.mjs",
+  "compatibility_date": "2025-06-01",
+  "vars": {
+    "GREETING": "hello"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "kitchensink-kv"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "R2",
+      "bucket_name": "kitchensink-r2"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "kitchensink",
+      "database_id": "kitchensink-db"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "binding": "QUEUE",
+        "queue": "kitchensink-queue"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "kitchensink-queue",
+        "max_batch_size": 1,
+        "max_batch_timeout": 1
+      }
+    ]
+  },
+  "triggers": {
+    "crons": ["* * * * *"]
+  }
+}
