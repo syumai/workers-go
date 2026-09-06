@@ -5,8 +5,10 @@
 // Package widgets is a synthetic fixture package used only by cfgen's
 // golden test. It exercises: a handle type, a data type, a string-literal
 // alias enum, a Promise-returning method, a Record-returning method, an
-// array field, an optional field, a rename, a types override, and a
-// handwritten method.
+// array field, an optional field, a rename, a types override, a
+// handwritten method, extends-flattening (GeoExt inherits and overrides a
+// field from GeoBase), and intersection-flattening (GeoCombined merges a
+// ref and an inline object literal).
 package widgets
 
 import (
@@ -73,6 +75,36 @@ func (x *Widget) Counters() (map[string]float64, error) {
 		var vv float64
 		vv = r.Get(k).Float()
 		ret[k] = vv
+	}
+	return ret, nil
+}
+
+// GetMany getMany fetches several WidgetInfo by key; its array parameter needs a multi-statement JS conversion.
+func (x *Widget) GetMany(keys []string) ([]WidgetInfo, error) {
+	var arg0 js.Value
+	{
+		arr := js.Global().Get("Array").New(len(keys))
+		for i, e := range keys {
+			arr.SetIndex(i, e)
+		}
+		arg0 = arr
+	}
+	p, err := jsrt.Call(x.v, "getMany", arg0)
+	if err != nil {
+		return nil, err
+	}
+	r, err := jsrt.Await(p)
+	if err != nil {
+		return nil, err
+	}
+	var ret []WidgetInfo
+	ret = make([]WidgetInfo, r.Length())
+	for i := range ret {
+		if tmp, err := widgetInfoFromJS(r.Index(i)); err != nil {
+			return nil, err
+		} else {
+			ret[i] = tmp
+		}
 	}
 	return ret, nil
 }
@@ -154,3 +186,87 @@ func WidgetFactoryFromJS(v js.Value) *WidgetFactory { return &WidgetFactory{v: v
 
 // JSValue returns the underlying JS value.
 func (x *WidgetFactory) JSValue() js.Value { return x.v }
+
+// GeoBase GeoBase is a plain data interface used as an extends target.
+type GeoBase struct {
+	Lat float64 `js:"lat"`
+}
+
+func geoBaseFromJS(v js.Value) (GeoBase, error) {
+	var out GeoBase
+	{
+		out.Lat = v.Get("lat").Float()
+	}
+	return out, nil
+}
+
+func (o GeoBase) toJS() js.Value {
+	obj := jsrt.NewObject()
+	if o.Lat != 0 {
+		obj.Set("lat", o.Lat)
+	}
+	return obj
+}
+
+// GeoExt GeoExt extends GeoBase, exercising extends-flattening: it inherits lat from GeoBase but overrides it with its own (differently typed) lat, and adds lng.
+type GeoExt struct {
+	Lat string  `js:"lat"`
+	Lng float64 `js:"lng"`
+}
+
+func geoExtFromJS(v js.Value) (GeoExt, error) {
+	var out GeoExt
+	{
+		out.Lat = v.Get("lat").String()
+	}
+	{
+		out.Lng = v.Get("lng").Float()
+	}
+	return out, nil
+}
+
+func (o GeoExt) toJS() js.Value {
+	obj := jsrt.NewObject()
+	if o.Lat != "" {
+		obj.Set("lat", o.Lat)
+	}
+	if o.Lng != 0 {
+		obj.Set("lng", o.Lng)
+	}
+	return obj
+}
+
+// GeoCombined GeoCombined is an intersection of a ref (GeoExt) and an inline object literal, exercising intersection-flattening for alias declarations.
+type GeoCombined struct {
+	Lat   string  `js:"lat"`
+	Lng   float64 `js:"lng"`
+	Label string  `js:"label"`
+}
+
+func geoCombinedFromJS(v js.Value) (GeoCombined, error) {
+	var out GeoCombined
+	{
+		out.Lat = v.Get("lat").String()
+	}
+	{
+		out.Lng = v.Get("lng").Float()
+	}
+	{
+		out.Label = v.Get("label").String()
+	}
+	return out, nil
+}
+
+func (o GeoCombined) toJS() js.Value {
+	obj := jsrt.NewObject()
+	if o.Lat != "" {
+		obj.Set("lat", o.Lat)
+	}
+	if o.Lng != 0 {
+		obj.Set("lng", o.Lng)
+	}
+	if o.Label != "" {
+		obj.Set("label", o.Label)
+	}
+	return obj
+}

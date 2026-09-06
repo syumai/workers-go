@@ -19,8 +19,11 @@ const (
 	KindAliasType
 )
 
-// classify determines how a declaration should be generated.
-func classify(d *ir.Decl) DeclKind {
+// classify determines how a declaration should be generated. declByName is
+// the full IR's declaration index (not just the current package's include
+// list), since resolving an intersection/extends composition may need to
+// look through declarations that aren't themselves generated standalone.
+func classify(declByName map[string]*ir.Decl, d *ir.Decl) DeclKind {
 	if d.Kind == "alias" {
 		t := d.Type
 		if t == nil {
@@ -31,6 +34,11 @@ func classify(d *ir.Decl) DeclKind {
 		}
 		if t.K == "object" {
 			return KindAliasData
+		}
+		if t.K == "intersection" {
+			if _, ok := resolveDataMembers(declByName, d); ok {
+				return KindAliasData
+			}
 		}
 		return KindAliasType
 	}
@@ -491,7 +499,7 @@ func (p *Package) refConv(t *ir.Type) (exprConv, error) {
 
 func (p *Package) declRefConv(d *ir.Decl) (exprConv, error) {
 	name := p.declGoName(d)
-	switch classify(d) {
+	switch classify(p.declByName, d) {
 	case KindHandle:
 		p.useImport("jsrt")
 		return exprConv{
@@ -528,8 +536,11 @@ func (p *Package) declRefConv(d *ir.Decl) (exprConv, error) {
 			ZeroExpr:   `""`,
 			OmitIfZero: func(expr string) string { return expr + ` != ""` },
 		}, nil
-	default: // KindAliasType: recurse into the underlying type.
-		return p.convFor(d.Type, "")
+	default: // KindAliasType: recurse into the underlying type, honoring a
+		// types: override keyed by the alias's own declaration name (so it
+		// applies consistently whether the alias is generated directly or
+		// reached through a ref elsewhere).
+		return p.convFor(d.Type, p.Ov.Types[d.Name])
 	}
 }
 

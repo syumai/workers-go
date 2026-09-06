@@ -1,0 +1,35 @@
+package: vectorize
+doc: |
+  Package vectorize provides the current-generation Vectorize binding
+  (https://developers.cloudflare.com/vectorize/). Mutations on this
+  binding are async, returning a mutation id rather than the mutated
+  vectors directly.
+
+  The .d.ts source also declares an older, synchronous-mutation
+  VectorizeIndex interface; this package intentionally wraps only the
+  current-generation Vectorize binding, per the migration guidance at
+  https://developers.cloudflare.com/vectorize/reference/transition-vectorize-legacy/.
+include:
+  - Vectorize
+  - VectorizeVector
+  - VectorizeQueryOptions
+  - VectorizeMatches
+  - VectorizeMatch
+  - VectorizeVectorMutation
+  - VectorizeIndexInfo
+  - VectorizeAsyncMutation
+bindings:
+  - Vectorize
+types:
+  # values/vector are (VectorFloatArray | number[]) in the .d.ts, a union
+  # cfgen can't resolve generically; a plain Go slice round-trips as a JS
+  # array either way, so map both to []float32.
+  VectorizeVector.values: "[]float32"
+  Vectorize.query.params.vector: "[]float32"
+  # metadata/filter are Record<string, ...> of a value type cfgen can't
+  # fully resolve (VectorizeVectorMetadata is itself a union, and the
+  # filter's value type additionally references TS-only utility/mapped
+  # types); map[string]any keeps them usable via manual js.Value access on
+  # the individual values.
+  VectorizeVector.metadata: "map[string]any"
+  VectorizeQueryOptions.filter: "map[string]any"

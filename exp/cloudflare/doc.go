@@ -2,8 +2,9 @@
 // runtime bindings tree (exp/cloudflare/<pkg>). Each subpackage is
 // mechanically derived from the @cloudflare/workers-types .d.ts source by
 // cfgen (scripts/gen-bindings/cfgen): one JS interface/class maps to one Go
-// type, one method maps to one method, and the mapping is documented in
-// tmp/06-codegen-spec.md.
+// type, one method maps to one method. See README.md in this directory for
+// the full mapping rules, the regeneration workflow, and how to write an
+// overrides file for a new package.
 //
 // Everything under exp/, including this tree, is experimental: because its
 // shape follows workers-types directly, it may gain, lose, or change

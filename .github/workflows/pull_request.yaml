@@ -28,6 +28,25 @@ jobs:
         run: |
           PATH=$PWD/testdata/wasm:$PATH GOOS=js GOARCH=wasm go test ./...
 
+      # scripts/gen-bindings is a separate Go module (kept out of the main
+      # module's go.sum), so `go test ./...` above doesn't cover it.
+      - name: Test cfgen (scripts/gen-bindings)
+        shell: bash
+        working-directory: scripts/gen-bindings
+        run: |
+          go test ./...
+          go vet ./...
+
+      # Verifies exp/cloudflare/<pkg>/z<pkg>_gen.go is what cfgen would
+      # produce from the committed IR (exp/internal/gen/ir/index.json) and
+      # overrides (exp/internal/gen/overrides/*.yaml) right now. This does
+      # NOT re-run the `extract` step (see gen-bindings-extract in the
+      # Makefile), so it needs no Node/pnpm toolchain — only a stale commit
+      # of the generated Go files themselves fails it.
+      - name: Check generated Cloudflare bindings are up to date
+        shell: bash
+        run: make gen-bindings-check
+
   examples:
     name: Build examples
     runs-on: ubuntu-latest

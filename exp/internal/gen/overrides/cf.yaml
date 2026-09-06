@@ -1,0 +1,36 @@
+package: cf
+doc: |
+  Package cf provides IncomingRequestCfProperties, the metadata
+  Cloudflare's edge attaches to a request (available on the underlying
+  Fetch API Request as `request.cf`). These are pure data types: there is
+  no JS handle object involved, only fromJS decoding, so this package has
+  no bindings.
+
+  In the .d.ts source, IncomingRequestCfProperties is assembled as a
+  TypeScript intersection of several smaller interfaces (which themselves
+  use `extends`). cfgen flattens that composition into one Go struct, so
+  every field is reachable directly off IncomingRequestCfProperties. Each
+  constituent interface is also generated standalone below, for callers
+  that only have one piece (e.g. a bot management report) in hand.
+
+  FromRequest and FromJS, which decode a *http.Request / raw js.Value into
+  an IncomingRequestCfProperties, are hand-written in cf.go.
+include:
+  - IncomingRequestCfProperties
+  - IncomingRequestCfPropertiesBase
+  - IncomingRequestCfPropertiesBotManagement
+  - IncomingRequestCfPropertiesBotManagementBase
+  - IncomingRequestCfPropertiesBotManagementEnterprise
+  - IncomingRequestCfPropertiesTLSClientAuth
+  - IncomingRequestCfPropertiesTLSClientAuthPlaceholder
+  - IncomingRequestCfPropertiesGeographicInformation
+  - IncomingRequestCfPropertiesCloudflareForSaaSEnterprise
+  - IncomingRequestCfPropertiesCloudflareAccessOrApiShield
+  - IncomingRequestCfPropertiesExportedAuthenticatorMetadata
+  - IncomingRequestCfPropertiesEdgeRequestKeepAliveStatus
+types:
+  # A union of the integer literals 0-5 with no named meaning per value in
+  # the .d.ts source (unlike e.g. InstanceStatus's string-literal union),
+  # so a plain int is a more useful mapping than the js.Value fallback
+  # cfgen would otherwise pick for a non-string-literal union.
+  IncomingRequestCfPropertiesEdgeRequestKeepAliveStatus: "int"

@@ -34,6 +34,7 @@
 * [x] Queues
   - [x] Producer
   - [x] Consumer
+* [x] Additional runtime bindings (Rate Limiting, Vectorize, Workflows, Hyperdrive, `request.cf`, ...), auto-generated from `@cloudflare/workers-types` — see [exp/cloudflare](exp/cloudflare/README.md) (experimental)
 
 ## Installation
 

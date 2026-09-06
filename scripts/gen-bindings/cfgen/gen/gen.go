@@ -84,7 +84,7 @@ func writeImports(out *strings.Builder, imports map[string]bool) {
 }
 
 func (p *Package) genDecl(sb *strings.Builder, d *ir.Decl) error {
-	switch classify(d) {
+	switch classify(p.declByName, d) {
 	case KindHandle:
 		return p.genHandle(sb, d)
 	case KindData, KindAliasData:
@@ -175,7 +175,7 @@ func (p *Package) genHandle(sb *strings.Builder, d *ir.Decl) error {
 
 func (p *Package) genBindingFunc(sb *strings.Builder, d *ir.Decl, name string) {
 	p.useImport("jsrt")
-	switch classify(d) {
+	switch classify(p.declByName, d) {
 	case KindHandle:
 		fmt.Fprintf(sb, "// New%s resolves the binding named bindingName from env.\n", name)
 		fmt.Fprintf(sb, "func New%s(bindingName string) (*%s, error) {\n", name, name)
@@ -270,7 +270,8 @@ func literalUnionKey(t *ir.Type) (string, bool) {
 func (p *Package) genMethod(sb *strings.Builder, d *ir.Decl, structName string, m ir.Member, goName string) error {
 	var params []string
 	var argExprs []string
-	for _, prm := range m.Params {
+	var argBlocks [][]string
+	for i, prm := range m.Params {
 		pname := goParamName(prm.Name)
 		override := p.typeOverride(d.Name, m.Name, "params."+prm.Name)
 		conv, err := p.convFor(prm.Type, override)
@@ -279,10 +280,24 @@ func (p *Package) genMethod(sb *strings.Builder, d *ir.Decl, structName string, 
 		}
 		params = append(params, pname+" "+conv.GoType)
 		pre, expr := conv.ToJS(pname)
-		if len(pre) > 0 {
-			return fmt.Errorf("%s: param %q requires a multi-statement JS conversion, which is not supported for method arguments", memberKey(d.Name, m.Name), prm.Name)
+		if len(pre) == 0 {
+			argExprs = append(argExprs, expr)
+			continue
 		}
-		argExprs = append(argExprs, expr)
+		// A multi-statement JS conversion (e.g. building a JS Array or
+		// object from a Go slice/map) can't be inlined as a single call
+		// argument expression. Every ToJS implementation that emits
+		// pre-statements today (array, record, map[string]any) computes
+		// its result as a js.Value, so it's always valid to spill it into
+		// a js.Value local — scoped to its own block so distinct params
+		// reusing the same conversion (and its internal names like "arr")
+		// don't collide.
+		argVar := fmt.Sprintf("arg%d", i)
+		block := []string{"var " + argVar + " js.Value", "{"}
+		block = append(block, indentAll(pre)...)
+		block = append(block, "\t"+argVar+" = "+expr, "}")
+		argBlocks = append(argBlocks, block)
+		argExprs = append(argExprs, argVar)
 	}
 
 	ret := m.Returns
@@ -309,6 +324,9 @@ func (p *Package) genMethod(sb *strings.Builder, d *ir.Decl, structName string, 
 
 	if isVoid {
 		fmt.Fprintf(sb, "func (x *%s) %s(%s) error {\n", structName, goName, strings.Join(params, ", "))
+		for _, b := range argBlocks {
+			sb.WriteString(indentBlock(b, 1))
+		}
 		if isAsync {
 			sb.WriteString("\tp, err := jsrt.Call(" + callArgs + ")\n\tif err != nil {\n\t\treturn err\n\t}\n\t_, err = jsrt.Await(p)\n\treturn err\n")
 		} else {
@@ -324,6 +342,9 @@ func (p *Package) genMethod(sb *strings.Builder, d *ir.Decl, structName string, 
 		return err
 	}
 	fmt.Fprintf(sb, "func (x *%s) %s(%s) (%s, error) {\n", structName, goName, strings.Join(params, ", "), conv.GoType)
+	for _, b := range argBlocks {
+		sb.WriteString(indentBlock(b, 1))
+	}
 	if isAsync {
 		fmt.Fprintf(sb, "\tp, err := jsrt.Call(%s)\n\tif err != nil {\n\t\treturn %s, err\n\t}\n", callArgs, conv.ZeroExpr)
 		sb.WriteString("\tr, err := jsrt.Await(p)\n\tif err != nil {\n\t\treturn " + conv.ZeroExpr + ", err\n\t}\n")
@@ -348,19 +369,19 @@ func goParamName(name string) string {
 // data types (interfaces/aliases with only properties)
 // ---------------------------------------------------------------------------
 
-func dataMembers(d *ir.Decl) []ir.Member {
-	if d.Kind == "alias" {
-		if d.Type != nil {
-			return d.Type.Members
-		}
-		return nil
-	}
-	return d.Members
+// dataMembers returns the flattened property members to generate for a
+// KindData/KindAliasData declaration. By the time genData is called,
+// classify has already confirmed this resolves successfully (that's what
+// makes it KindData/KindAliasData in the first place), so the ok result is
+// not meaningful here.
+func (p *Package) dataMembers(d *ir.Decl) []ir.Member {
+	members, _ := resolveDataMembers(p.declByName, d)
+	return members
 }
 
 func (p *Package) genData(sb *strings.Builder, d *ir.Decl) error {
 	name := p.declGoName(d)
-	members := dataMembers(d)
+	members := p.dataMembers(d)
 
 	docComment(sb, d.Doc, name)
 	sb.WriteString("type " + name + " struct {\n")

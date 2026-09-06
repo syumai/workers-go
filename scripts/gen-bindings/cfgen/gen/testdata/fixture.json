@@ -38,6 +38,16 @@
           "params": [],
           "returns": { "k": "ref", "name": "Record", "args": [ { "k": "prim", "name": "string" }, { "k": "prim", "name": "number" } ] },
           "typeParams": []
+        },
+        {
+          "kind": "method",
+          "name": "getMany",
+          "doc": "getMany fetches several WidgetInfo by key; its array parameter needs a multi-statement JS conversion.",
+          "params": [
+            { "name": "keys", "type": { "k": "array", "elem": { "k": "prim", "name": "string" } }, "optional": false, "rest": false }
+          ],
+          "returns": { "k": "ref", "name": "Promise", "args": [ { "k": "array", "elem": { "k": "ref", "name": "WidgetInfo", "args": [] } } ] },
+          "typeParams": []
         }
       ]
     },
@@ -130,6 +140,92 @@
           "typeParams": []
         }
       ]
+    },
+    {
+      "kind": "interface",
+      "name": "GeoBase",
+      "module": "",
+      "doc": "GeoBase is a plain data interface used as an extends target.",
+      "typeParams": [],
+      "extends": [],
+      "members": [
+        {
+          "kind": "property",
+          "name": "lat",
+          "doc": "",
+          "type": { "k": "prim", "name": "number" },
+          "optional": false,
+          "readonly": false
+        }
+      ]
+    },
+    {
+      "kind": "interface",
+      "name": "GeoExt",
+      "module": "",
+      "doc": "GeoExt extends GeoBase, exercising extends-flattening: it inherits lat from GeoBase but overrides it with its own (differently typed) lat, and adds lng.",
+      "typeParams": [],
+      "extends": [
+        { "k": "ref", "name": "GeoBase", "args": [] }
+      ],
+      "members": [
+        {
+          "kind": "property",
+          "name": "lat",
+          "doc": "",
+          "type": { "k": "prim", "name": "string" },
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "kind": "property",
+          "name": "lng",
+          "doc": "",
+          "type": { "k": "prim", "name": "number" },
+          "optional": false,
+          "readonly": false
+        }
+      ]
+    },
+    {
+      "kind": "alias",
+      "name": "GeoCombined",
+      "module": "",
+      "doc": "GeoCombined is an intersection of a ref (GeoExt) and an inline object literal, exercising intersection-flattening for alias declarations.",
+      "typeParams": [],
+      "type": {
+        "k": "intersection",
+        "types": [
+          { "k": "ref", "name": "GeoExt", "args": [] },
+          {
+            "k": "object",
+            "members": [
+              {
+                "kind": "property",
+                "name": "label",
+                "doc": "",
+                "type": { "k": "prim", "name": "string" },
+                "optional": false,
+                "readonly": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "alias",
+      "name": "GeoUnresolvable",
+      "module": "",
+      "doc": "GeoUnresolvable intersects a resolvable ref with one that isn't in the IR at all, exercising the all-or-nothing fallback for alias intersections.",
+      "typeParams": [],
+      "type": {
+        "k": "intersection",
+        "types": [
+          { "k": "ref", "name": "GeoExt", "args": [] },
+          { "k": "ref", "name": "NotInTheIR", "args": [] }
+        ]
+      }
     }
   ]
 }

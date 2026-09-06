@@ -3,7 +3,6 @@ package gen
 import (
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -88,7 +87,7 @@ func (o *Overrides) Validate(doc *ir.IR) error {
 			return nil
 		}
 		memberOrMethod := parts[1]
-		if !declHasMember(d, memberOrMethod) {
+		if !declHasMember(declByName, d, memberOrMethod) {
 			return fmt.Errorf("%s: %q refers to member %q which does not exist on %q", o.Path, key, memberOrMethod, declName)
 		}
 		switch len(parts) {
@@ -164,13 +163,15 @@ func indexDecls(doc *ir.IR) map[string]*ir.Decl {
 	return m
 }
 
-func declHasMember(d *ir.Decl, name string) bool {
-	if d.Kind == "alias" {
-		if d.Type != nil && d.Type.K == "object" {
-			for _, m := range d.Type.Members {
-				if m.Name == name {
-					return true
-				}
+// declHasMember reports whether d has a property or method named name,
+// including one contributed by a resolvable extends/intersection
+// composition (see resolveDataMembers) rather than only d's own direct
+// members.
+func declHasMember(declByName map[string]*ir.Decl, d *ir.Decl, name string) bool {
+	if members, ok := resolveDataMembers(declByName, d); ok {
+		for _, m := range members {
+			if m.Name == name {
+				return true
 			}
 		}
 		return false
@@ -195,15 +196,4 @@ func methodHasParam(d *ir.Decl, method, param string) bool {
 		}
 	}
 	return false
-}
-
-// sortedKeys returns the keys of m in sorted order, for deterministic
-// iteration when generating code.
-func sortedKeys[V any](m map[string]V) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
 }

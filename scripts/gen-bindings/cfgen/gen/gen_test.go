@@ -5,6 +5,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/syumai/workers-go/scripts/gen-bindings/cfgen/ir"
@@ -88,6 +89,46 @@ func TestValidateRejectsUnknownNames(t *testing.T) {
 				t.Errorf("expected an error, got nil")
 			}
 		})
+	}
+}
+
+// TestIntersectionFallsBackWhenUnresolvable verifies that GeoUnresolvable
+// (an alias intersecting a resolvable ref with one that isn't in the IR at
+// all) falls back to the pre-flattening behavior — an opaque js.Value type
+// alias, with a warning — rather than silently merging only the fields it
+// could resolve (which would misrepresent the shape).
+func TestIntersectionFallsBackWhenUnresolvable(t *testing.T) {
+	doc := loadFixtureIR(t, filepath.Join("testdata", "fixture.json"))
+	ov := &Overrides{Package: "x", Include: []string{"GeoUnresolvable"}, Path: "fixture"}
+	if err := ov.Validate(doc); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Generate(doc, ov)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Warnings) == 0 {
+		t.Errorf("expected a fallback warning, got none")
+	}
+	if !strings.Contains(string(result.Source), "type GeoUnresolvable = js.Value") {
+		t.Errorf("expected GeoUnresolvable to fall back to js.Value, got:\n%s", result.Source)
+	}
+}
+
+// TestDeclHasMemberSeesFlattenedFields verifies that an override key can
+// reference a field GeoExt only has by virtue of extends-flattening
+// (lat, inherited-then-overridden from GeoBase; lng is GeoExt's own), not
+// just its own direct members.
+func TestDeclHasMemberSeesFlattenedFields(t *testing.T) {
+	doc := loadFixtureIR(t, filepath.Join("testdata", "fixture.json"))
+	ov := &Overrides{
+		Package: "x",
+		Include: []string{"GeoExt"},
+		Rename:  map[string]string{"GeoExt.lat": "Latitude"},
+		Path:    "fixture",
+	}
+	if err := ov.Validate(doc); err != nil {
+		t.Fatalf("Validate() failed for a rename targeting a flattened field: %v", err)
 	}
 }
 
