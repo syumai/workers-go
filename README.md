@@ -31,6 +31,7 @@
 * [x] FetchEvent
 * [x] Cron Triggers
 * [x] TCP Sockets
+* [x] Inbound TCP Sockets (connect handler)
 * [x] Queues
   - [x] Producer
   - [x] Consumer

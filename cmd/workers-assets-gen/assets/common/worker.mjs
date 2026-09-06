@@ -63,9 +63,23 @@ async function onRequest(ctx) {
   return binding.handleRequest(request);
 }
 
+async function connect(socket, env, ctx) {
+  const binding = {};
+  await run(createRuntimeContext({ env, ctx, binding }));
+  if (typeof binding.handleConnect !== "function") {
+    // Go side did not import github.com/syumai/workers-go/cloudflare/sockets.
+    await socket.close();
+    throw new Error(
+      "connect handler is not registered: import github.com/syumai/workers-go/cloudflare/sockets and call sockets.Listen or sockets.Serve",
+    );
+  }
+  return binding.handleConnect(socket);
+}
+
 export default {
   fetch,
   scheduled,
   queue,
   onRequest,
+  connect,
 };
