@@ -82,7 +82,7 @@ jobs:
           GOOS=js GOARCH=wasm go vet ./...
 
       - name: Run mirror smoke tests
-        run: bash mirror-tests/run.sh
+        run: bash internal/cmd/genforward/mirror-tests/run.sh
 
       # We compare the workers-go *source* trees of the PR's base and head,
       # not the generated mirror trees: the mirror consists entirely of

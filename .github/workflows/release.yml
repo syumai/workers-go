@@ -217,7 +217,7 @@ jobs:
 
       - name: Run workers-go's mirror smoke tests
         if: steps.sync_target.outputs.tag != ''
-        run: bash mirror-tests/run.sh
+        run: bash internal/cmd/genforward/mirror-tests/run.sh
 
       # Compare the workers-go source tree at the previous tag against the
       # tree being released now, with scripts/apidiff.sh (see its header

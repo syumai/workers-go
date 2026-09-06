@@ -3,7 +3,7 @@
 // the mirror module (the old github.com/syumai/workers import path, and
 // nothing from the new module directly) must keep building unchanged.
 //
-// mirror-tests/run.sh builds this module against a locally generated mirror
+// internal/cmd/genforward/mirror-tests/run.sh builds this module against a locally generated mirror
 // via a "replace github.com/syumai/workers => <generated mirror>" directive,
 // so the import path below is the real mirror module path.
 package main

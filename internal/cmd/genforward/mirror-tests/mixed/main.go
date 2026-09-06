@@ -5,16 +5,16 @@
 // that every exported type in the mirror is a true alias of the
 // corresponding type in the source module rather than a copy.
 //
-// mirror-tests/run.sh builds this module against a locally generated mirror
+// internal/cmd/genforward/mirror-tests/run.sh builds this module against a locally generated mirror
 // and the source module checkout via "replace" directives, so the import
 // paths below are the real mirror and source module paths.
 package main
 
 import (
-	oldkv "github.com/syumai/workers/cloudflare/kv"
-	oldr2 "github.com/syumai/workers/cloudflare/r2"
 	newkv "github.com/syumai/workers-go/cloudflare/kv"
 	newr2 "github.com/syumai/workers-go/cloudflare/r2"
+	oldkv "github.com/syumai/workers/cloudflare/kv"
+	oldr2 "github.com/syumai/workers/cloudflare/r2"
 )
 
 // takesNewNamespace is typed against the new (source module) path.
