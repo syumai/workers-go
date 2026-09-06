@@ -1,0 +1,14 @@
+{
+  "name": "kitchensink",
+  "main": "./build/worker.mjs",
+  "compatibility_date": "2025-06-01",
+  "vars": {
+    "GREETING": "hello"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "kitchensink-kv"
+    }
+  ]
+}
