@@ -87,8 +87,69 @@ func startWrangler(t *testing.T, fixture string) *worker {
 		"--log-level", "info",
 	}
 
-	cmd := exec.Command("pnpm", args...)
-	cmd.Dir = e2eDir
+	return runWrangler(t, "pnpm", e2eDir, args, httpPort, "/healthz")
+}
+
+// startWranglerPages starts `wrangler pages dev` for the fixture under
+// testdata/workers/<fixture>, serving the fixture's pages/ directory as
+// static assets and picking up its functions/ directory (which must live
+// alongside pages/, since `wrangler pages dev` discovers Pages Functions
+// relative to the working directory rather than via --config). Otherwise
+// it behaves like startWrangler: it waits for readiness and registers a
+// t.Cleanup that stops the process.
+func startWranglerPages(t *testing.T, fixture string) *worker {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("skipping wrangler e2e test in short mode")
+	}
+
+	e2eDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working directory: %v", err)
+	}
+	fixtureDir := filepath.Join(e2eDir, "testdata", "workers", fixture)
+	pagesDir := filepath.Join(fixtureDir, "pages")
+	if _, err := os.Stat(pagesDir); err != nil {
+		t.Fatalf("fixture pages dir not found: %s: %v", pagesDir, err)
+	}
+	// `wrangler pages dev` is invoked directly (not via `pnpm exec`):
+	// pnpm's `exec` resets the child process's working directory away
+	// from the caller's cwd, which breaks wrangler's cwd-relative
+	// discovery of the sibling ./functions directory (there is no
+	// --config-style flag to anchor that lookup explicitly, unlike
+	// `wrangler dev`). Invoking the installed binary directly with
+	// cmd.Dir set to fixtureDir keeps that discovery working.
+	wranglerBin := filepath.Join(e2eDir, "node_modules", ".bin", "wrangler")
+	if _, err := os.Stat(wranglerBin); err != nil {
+		t.Fatalf("wrangler binary not found: %s: %v", wranglerBin, err)
+	}
+
+	httpPort := freePort(t)
+	inspectorPort := freePort(t)
+	persistDir := t.TempDir()
+
+	args := []string{
+		"pages", "dev", pagesDir,
+		"--port", strconv.Itoa(httpPort),
+		"--inspector-port", strconv.Itoa(inspectorPort),
+		"--persist-to", persistDir,
+		"--compatibility-date", "2025-06-01",
+		"--show-interactive-dev-session=false",
+		"--log-level", "info",
+	}
+
+	return runWrangler(t, wranglerBin, fixtureDir, args, httpPort, "/api/healthz")
+}
+
+// runWrangler starts `cmdName ...args` in dir, waits for it to report
+// readiness (either a "Ready on http://" log line or a 200 from
+// healthzPath), and registers a t.Cleanup that stops it (SIGTERM,
+// escalating to SIGKILL after 5s).
+func runWrangler(t *testing.T, cmdName, dir string, args []string, httpPort int, healthzPath string) *worker {
+	t.Helper()
+
+	cmd := exec.Command(cmdName, args...)
+	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "CI=true", "WRANGLER_SEND_METRICS=false")
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
@@ -151,7 +212,7 @@ func startWrangler(t *testing.T, fixture string) *worker {
 		Transport: &http.Transport{DisableCompression: true},
 	}
 
-	// Also poll /healthz: some fixtures may print their "Ready on
+	// Also poll healthzPath: some fixtures may print their "Ready on
 	// http://" line before the handler is actually able to serve
 	// requests, and relying on either signal alone has been flaky in
 	// other wrangler-based test setups.
@@ -166,7 +227,7 @@ func startWrangler(t *testing.T, fixture string) *worker {
 			case <-pollCtx.Done():
 				return
 			case <-ticker.C:
-				req, err := http.NewRequestWithContext(pollCtx, http.MethodGet, baseURL+"/healthz", nil)
+				req, err := http.NewRequestWithContext(pollCtx, http.MethodGet, baseURL+healthzPath, nil)
 				if err != nil {
 					continue
 				}
@@ -187,9 +248,9 @@ func startWrangler(t *testing.T, fixture string) *worker {
 	select {
 	case <-readyCh:
 	case <-waitDone:
-		t.Fatalf("wrangler dev exited before becoming ready for fixture %q", fixture)
+		t.Fatalf("wrangler exited before becoming ready: %s", cmd.String())
 	case <-time.After(wranglerReadyTimeout):
-		t.Fatalf("timed out after %s waiting for wrangler dev to become ready for fixture %q", wranglerReadyTimeout, fixture)
+		t.Fatalf("timed out after %s waiting for wrangler to become ready: %s", wranglerReadyTimeout, cmd.String())
 	}
 
 	return &worker{

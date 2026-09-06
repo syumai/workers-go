@@ -17,9 +17,34 @@ import (
 	"testing"
 )
 
-// fixtures lists the testdata/workers/<name> directories TestMain must
-// build (workers-assets-gen + GOOS=js GOARCH=wasm) before any test runs.
-var fixtures = []string{"kitchensink"}
+// fixture describes one testdata/workers/<name> Worker and how TestMain
+// (or, for tinygo, the fixture's own test) must build it.
+type fixture struct {
+	// name is the fixture directory under testdata/workers/.
+	name string
+	// tinygo, when true, means the fixture is compiled with the tinygo
+	// toolchain (workers-assets-gen -mode=tinygo + `tinygo build`)
+	// instead of the standard go toolchain. TestMain never builds these
+	// fixtures: most contributors don't have tinygo installed, so
+	// building is deferred to the fixture's own test, gated by
+	// E2E_TINYGO=1 (see buildFixtureTinygo).
+	tinygo bool
+	// assetsGenArgs are extra arguments appended to the
+	// workers-assets-gen invocation, after -mode and -o. Most fixtures
+	// leave this nil and take the default (cloudflare) runtime.
+	assetsGenArgs []string
+}
+
+// fixtures lists the testdata/workers/<name> directories this package
+// knows about. TestMain builds every non-tinygo entry (workers-assets-gen
+// + GOOS=js GOARCH=wasm) before any test runs.
+var fixtures = []fixture{
+	{name: "kitchensink"},
+	{name: "durableobject"},
+	{name: "sockets"},
+	{name: "pages"},
+	{name: "tinygo", tinygo: true},
+}
 
 func TestMain(m *testing.M) {
 	// testing.Short() below reads a flag value, so flags must be parsed
@@ -54,9 +79,14 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 
-	for _, name := range fixtures {
-		if err := buildFixture(repoRoot, e2eDir, name); err != nil {
-			fmt.Fprintf(os.Stderr, "e2e: failed to build fixture %q: %v\n", name, err)
+	for _, f := range fixtures {
+		if f.tinygo {
+			// Built lazily by the tinygo fixture's own test, gated by
+			// E2E_TINYGO=1: see buildFixtureTinygo in tinygo_test.go.
+			continue
+		}
+		if err := buildFixture(repoRoot, e2eDir, f); err != nil {
+			fmt.Fprintf(os.Stderr, "e2e: failed to build fixture %q: %v\n", f.name, err)
 			os.Exit(1)
 		}
 	}
@@ -99,22 +129,47 @@ func ensureWranglerInstalled(e2eDir string) error {
 // buildFixture generates the wrangler assets (workers-assets-gen) and
 // compiles the fixture's app.wasm into
 // e2e/testdata/workers/<name>/build/.
-func buildFixture(repoRoot, e2eDir, name string) error {
-	fixtureDir := filepath.Join(e2eDir, "testdata", "workers", name)
+func buildFixture(repoRoot, e2eDir string, f fixture) error {
+	fixtureDir := filepath.Join(e2eDir, "testdata", "workers", f.name)
 	buildDir := filepath.Join(fixtureDir, "build")
 	assetsGenDir := filepath.Join(repoRoot, "cmd", "workers-assets-gen")
 
-	genCmd := exec.Command("go", "run", assetsGenDir, "-mode=go", "-o", buildDir)
+	genArgs := append([]string{"run", assetsGenDir, "-mode=go", "-o", buildDir}, f.assetsGenArgs...)
+	genCmd := exec.Command("go", genArgs...)
 	genCmd.Dir = e2eDir
 	if out, err := genCmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("workers-assets-gen for %q failed: %w\n%s", name, err, out)
+		return fmt.Errorf("workers-assets-gen for %q failed: %w\n%s", f.name, err, out)
 	}
 
 	buildCmd := exec.Command("go", "build", "-o", filepath.Join(buildDir, "app.wasm"), fixtureDir)
 	buildCmd.Dir = e2eDir
 	buildCmd.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 	if out, err := buildCmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("GOOS=js GOARCH=wasm go build for %q failed: %w\n%s", name, err, out)
+		return fmt.Errorf("GOOS=js GOARCH=wasm go build for %q failed: %w\n%s", f.name, err, out)
+	}
+	return nil
+}
+
+// buildFixtureTinygo generates the wrangler assets in tinygo mode and
+// compiles the fixture's app.wasm with the tinygo toolchain instead of the
+// standard go toolchain. Unlike buildFixture, this is never called from
+// TestMain: it's invoked lazily by the tinygo fixture's own test, gated by
+// E2E_TINYGO=1, since most contributors won't have tinygo installed.
+func buildFixtureTinygo(repoRoot, e2eDir, name string) error {
+	fixtureDir := filepath.Join(e2eDir, "testdata", "workers", name)
+	buildDir := filepath.Join(fixtureDir, "build")
+	assetsGenDir := filepath.Join(repoRoot, "cmd", "workers-assets-gen")
+
+	genCmd := exec.Command("go", "run", assetsGenDir, "-mode=tinygo", "-o", buildDir)
+	genCmd.Dir = e2eDir
+	if out, err := genCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("workers-assets-gen -mode=tinygo for %q failed: %w\n%s", name, err, out)
+	}
+
+	buildCmd := exec.Command("tinygo", "build", "-o", filepath.Join(buildDir, "app.wasm"), "-target", "wasm", "-no-debug", "./")
+	buildCmd.Dir = fixtureDir
+	if out, err := buildCmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("tinygo build for %q failed: %w\n%s", name, err, out)
 	}
 	return nil
 }
