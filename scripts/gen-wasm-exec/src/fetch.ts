@@ -1,10 +1,22 @@
 const RAW_GITHUB = "https://raw.githubusercontent.com/";
 
-export function goWasmExecURL(version: string): string {
+export function goLibWasmURL(version: string, file: string): string {
 	return new URL(
-		`golang/go/refs/tags/go${version}/lib/wasm/wasm_exec.js`,
+		`golang/go/refs/tags/go${version}/lib/wasm/${file}`,
 		RAW_GITHUB,
 	).toString();
+}
+
+export function goWasmExecURL(version: string): string {
+	return goLibWasmURL(version, "wasm_exec.js");
+}
+
+export function goWasmExecNodeURL(version: string): string {
+	return goLibWasmURL(version, "wasm_exec_node.js");
+}
+
+export function goJsWasmExecURL(version: string): string {
+	return goLibWasmURL(version, "go_js_wasm_exec");
 }
 
 export function tinygoWasmExecURL(version: string): string {

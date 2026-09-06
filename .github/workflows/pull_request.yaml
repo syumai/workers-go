@@ -26,7 +26,7 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          PATH=$PWD/misc/wasm:$PATH GOOS=js GOARCH=wasm go test ./...
+          PATH=$PWD/testdata/wasm:$PATH GOOS=js GOARCH=wasm go test ./...
 
   examples:
     name: Build examples

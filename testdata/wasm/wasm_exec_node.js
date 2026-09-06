@@ -11,6 +11,7 @@ if (process.argv.length < 3) {
 
 globalThis.require = require;
 globalThis.fs = require("fs");
+globalThis.path = require("path");
 globalThis.TextEncoder = require("util").TextEncoder;
 globalThis.TextDecoder = require("util").TextDecoder;
 
@@ -33,7 +34,8 @@ WebAssembly.instantiate(fs.readFileSync(process.argv[2]), go.importObject).then(
 			go._resume();
 		}
 	});
-	return go.run(result.instance);
+	// the patched wasm_exec.js reads context.binding (see internal/jsutil).
+	return go.run(result.instance, { binding: {} });
 }).catch((err) => {
 	console.error(err);
 	process.exit(1);
