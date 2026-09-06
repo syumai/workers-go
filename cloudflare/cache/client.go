@@ -36,6 +36,9 @@ func WithNamespace(namespace string) CacheOption {
 }
 
 func New(opts ...CacheOption) *Cache {
+	if cache.IsUndefined() {
+		panic("cache: caches is undefined")
+	}
 	c := &Cache{
 		instance: cache.Get("default"),
 	}
