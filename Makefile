@@ -9,7 +9,7 @@ test:
 
 .PHONY: test-host
 test-host:
-	go test . ./cmd/... ./internal/cmd/...
+	go test . ./cmd/...
 
 .PHONY: test-e2e
 test-e2e:

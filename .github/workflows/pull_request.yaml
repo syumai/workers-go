@@ -82,36 +82,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # e2e/ is added in a later PR; until then this job's remaining steps
-      # are skipped so the workflow stays green. `hashFiles` can only be
-      # used in step-level conditions, not `jobs.<job_id>.if`, so the guard
-      # is repeated on each step below instead of once at the job level.
       - name: Setup Golang
-        if: hashFiles('e2e/package.json') != ''
         uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
 
       - name: Setup pnpm
-        if: hashFiles('e2e/package.json') != ''
         uses: pnpm/action-setup@v4
         with:
           package_json_file: e2e/package.json
           run_install: false
 
       - name: Setup Node.js
-        if: hashFiles('e2e/package.json') != ''
         uses: actions/setup-node@v4
         with:
           node-version: 24
 
       - name: Install e2e dependencies
-        if: hashFiles('e2e/package.json') != ''
         working-directory: e2e
         run: pnpm install --frozen-lockfile
 
       - name: Test (e2e)
-        if: hashFiles('e2e/package.json') != ''
         shell: bash
         run: make test-e2e
 
