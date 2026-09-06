@@ -1,0 +1,3 @@
+node_modules/
+testdata/workers/*/build/
+.wrangler/
