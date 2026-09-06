@@ -49,8 +49,7 @@ func (ns *Namespace) PutReader(key string, value io.Reader, opts *PutOptions) er
 	if err != nil {
 		return err
 	}
-	ua := jsutil.NewUint8Array(len(b))
-	js.CopyBytesToJS(ua, b)
+	ua := jsutil.BytesToJS(b)
 	p := ns.instance.Call("put", key, ua.Get("buffer"), opts.toJS())
 	_, err = jsutil.AwaitPromise(p)
 	if err != nil {

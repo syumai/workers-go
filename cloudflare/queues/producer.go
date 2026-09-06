@@ -32,8 +32,7 @@ func (p *Producer) SendText(body string, opts ...SendOption) error {
 
 // SendBytes sends a single byte array message to a queue.
 func (p *Producer) SendBytes(body []byte, opts ...SendOption) error {
-	ua := jsutil.NewUint8Array(len(body))
-	js.CopyBytesToJS(ua, body)
+	ua := jsutil.BytesToJS(body)
 	// accortind to docs, "bytes" type requires an ArrayBuffer to be sent, however practical experience shows that ArrayBufferView should
 	// be used instead and with Uint8Array.buffer as a value, the send simply fails
 	return p.send(ua, contentTypeBytes, opts...)

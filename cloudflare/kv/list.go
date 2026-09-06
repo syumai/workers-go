@@ -44,14 +44,9 @@ type ListKey struct {
 // toListKey converts JavaScript side's KVNamespaceListKey to *ListKey.
 //   - https://github.com/cloudflare/workers-types/blob/3012f263fb1239825e5f0061b267c8650d01b717/index.d.ts#L940
 func toListKey(v js.Value) (*ListKey, error) {
-	expVal := v.Get("expiration")
-	var exp int
-	if !expVal.IsUndefined() {
-		exp = expVal.Int()
-	}
 	return &ListKey{
 		Name:       v.Get("name").String(),
-		Expiration: exp,
+		Expiration: jsutil.MaybeInt(v.Get("expiration")),
 		// Metadata // TODO: implement. This may return an error, so this func signature has an error in return parameters.
 	}, nil
 }
@@ -77,16 +72,10 @@ func toListResult(v js.Value) (*ListResult, error) {
 		keys[i] = key
 	}
 
-	cursorVal := v.Get("cursor")
-	var cursor string
-	if !cursorVal.IsUndefined() {
-		cursor = cursorVal.String()
-	}
-
 	return &ListResult{
 		Keys:         keys,
 		ListComplete: v.Get("list_complete").Bool(),
-		Cursor:       cursor,
+		Cursor:       jsutil.MaybeString(v.Get("cursor")),
 	}, nil
 }
 

@@ -31,27 +31,9 @@ func ChainMiddlewares(middlewares ...Middleware) Middleware {
 }
 
 func init() {
-	runHonoMiddlewareCallback := js.FuncOf(func(_ js.Value, args []js.Value) any {
-		if len(args) > 1 {
-			panic(fmt.Errorf("too many args given to handleRequest: %d", len(args)))
-		}
-		nextFnObj := args[0]
-		var cb js.Func
-		cb = js.FuncOf(func(_ js.Value, pArgs []js.Value) any {
-			defer cb.Release()
-			resolve := pArgs[0]
-			go func() {
-				err := runHonoMiddleware(nextFnObj)
-				if err != nil {
-					panic(err)
-				}
-				resolve.Invoke(js.Undefined())
-			}()
-			return js.Undefined()
-		})
-		return jsutil.NewPromise(cb)
+	jsutil.RegisterAsyncHandler("runHonoMiddleware", 1, func(args []js.Value) (js.Value, error) {
+		return js.Undefined(), runHonoMiddleware(args[0])
 	})
-	jsutil.Binding.Set("runHonoMiddleware", runHonoMiddlewareCallback)
 }
 
 func runHonoMiddleware(nextFnObj js.Value) error {

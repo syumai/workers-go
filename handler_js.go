@@ -22,31 +22,9 @@ var (
 )
 
 func init() {
-	var handleRequestCallback js.Func
-	handleRequestCallback = js.FuncOf(func(this js.Value, args []js.Value) any {
-		reqObj := args[0]
-		var cb js.Func
-		cb = js.FuncOf(func(_ js.Value, pArgs []js.Value) any {
-			defer cb.Release()
-			resolve := pArgs[0]
-			reject := pArgs[1]
-			go func() {
-				if len(args) > 1 {
-					reject.Invoke(jsutil.Errorf("too many args given to handleRequest: %d", len(args)))
-					return
-				}
-				res, err := handleRequest(reqObj)
-				if err != nil {
-					reject.Invoke(jsutil.Error(err.Error()))
-					return
-				}
-				resolve.Invoke(res)
-			}()
-			return js.Undefined()
-		})
-		return jsutil.NewPromise(cb)
+	jsutil.RegisterAsyncHandler("handleRequest", 1, func(args []js.Value) (js.Value, error) {
+		return handleRequest(args[0])
 	})
-	jsutil.Binding.Set("handleRequest", handleRequestCallback)
 }
 
 type appCloser struct {

@@ -17,30 +17,9 @@ type Consumer func(batch *MessageBatch) error
 var consumer Consumer
 
 func init() {
-	handleBatchCallback := js.FuncOf(func(this js.Value, args []js.Value) any {
-		batch := args[0]
-		var cb js.Func
-		cb = js.FuncOf(func(_ js.Value, pArgs []js.Value) any {
-			defer cb.Release()
-			resolve := pArgs[0]
-			reject := pArgs[1]
-			go func() {
-				if len(args) > 1 {
-					reject.Invoke(jsutil.Errorf("too many args given to handleQueueMessageBatch: %d", len(args)))
-					return
-				}
-				err := consumeBatch(batch)
-				if err != nil {
-					reject.Invoke(jsutil.Error(err.Error()))
-					return
-				}
-				resolve.Invoke(js.Undefined())
-			}()
-			return js.Undefined()
-		})
-		return jsutil.NewPromise(cb)
+	jsutil.RegisterAsyncHandler("handleQueueMessageBatch", 1, func(args []js.Value) (js.Value, error) {
+		return js.Undefined(), consumeBatch(args[0])
 	})
-	jsutil.Binding.Set("handleQueueMessageBatch", handleBatchCallback)
 }
 
 func consumeBatch(batch js.Value) error {

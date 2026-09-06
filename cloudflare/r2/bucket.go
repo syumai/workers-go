@@ -103,8 +103,7 @@ func (r *Bucket) Put(key string, value io.ReadCloser, opts *PutOptions) (*Object
 		return nil, err
 	}
 	defer value.Close()
-	ua := jsutil.NewUint8Array(len(b))
-	js.CopyBytesToJS(ua, b)
+	ua := jsutil.BytesToJS(b)
 	p := r.instance.Call("put", key, ua.Get("buffer"), opts.toJS())
 	v, err := jsutil.AwaitPromise(p)
 	if err != nil {
