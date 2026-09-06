@@ -5,7 +5,7 @@ TINYGO_VERSION ?= 0.42.0
 
 .PHONY: test
 test:
-	@PATH=$(CURDIR)/misc/wasm:$$PATH GOOS=js GOARCH=wasm go test ./...
+	@PATH=$(CURDIR)/testdata/wasm:$$PATH GOOS=js GOARCH=wasm go test ./...
 
 .PHONY: build-examples
 build-examples:
