@@ -12,21 +12,23 @@ func resolve(v any) js.Value {
 	return js.Global().Get("Promise").Call("resolve", v)
 }
 
-// TestKVNamespace_GetText_PassesLiteralType verifies that the overload
-// split for KVNamespace.get sends the correct literal "type" argument to
-// JS for each Go method (GetText -> "text"), and that a resolved string
-// decodes as a non-nil *string.
-func TestKVNamespace_GetText_PassesLiteralType(t *testing.T) {
+// TestKVNamespace_GetText_PassesTypeInOptions verifies that the overload
+// split for KVNamespace.get sends an options object carrying the correct
+// "type" field to JS for each Go method (GetText -> "text"), and that a
+// resolved string decodes as a non-nil *string.
+func TestKVNamespace_GetText_PassesTypeInOptions(t *testing.T) {
 	var gotKey, gotType string
+	var gotCacheTTL int
 	fake := js.ValueOf(map[string]any{})
 	fake.Set("get", js.FuncOf(func(this js.Value, args []js.Value) any {
 		gotKey = args[0].String()
-		gotType = args[1].String()
+		gotType = args[1].Get("type").String()
+		gotCacheTTL = args[1].Get("cacheTtl").Int()
 		return resolve("hello")
 	}))
 
 	ns := KVNamespaceFromJS(fake)
-	got, err := ns.GetText("some-key")
+	got, err := ns.GetText("some-key", KVNamespaceGetOptions{Type: "text", CacheTTL: 60})
 	if err != nil {
 		t.Fatalf("GetText() failed: %v", err)
 	}
@@ -34,31 +36,34 @@ func TestKVNamespace_GetText_PassesLiteralType(t *testing.T) {
 		t.Errorf("key sent to JS = %q, want %q", gotKey, "some-key")
 	}
 	if gotType != "text" {
-		t.Errorf("type literal sent to JS = %q, want %q", gotType, "text")
+		t.Errorf("type sent to JS = %q, want %q", gotType, "text")
+	}
+	if gotCacheTTL != 60 {
+		t.Errorf("cacheTtl sent to JS = %v, want 60", gotCacheTTL)
 	}
 	if got == nil || *got != "hello" {
 		t.Errorf("GetText() = %v, want *string(\"hello\")", got)
 	}
 }
 
-// TestKVNamespace_GetJSON_PassesLiteralType verifies the "json" overload
-// sends "json" as the type literal and returns the raw js.Value (since the
-// decoded shape is caller-defined).
-func TestKVNamespace_GetJSON_PassesLiteralType(t *testing.T) {
+// TestKVNamespace_GetJSON_PassesTypeInOptions verifies the "json" overload
+// sends "json" as the options' type field and returns the raw js.Value
+// (since the decoded shape is caller-defined).
+func TestKVNamespace_GetJSON_PassesTypeInOptions(t *testing.T) {
 	var gotType string
 	fake := js.ValueOf(map[string]any{})
 	fake.Set("get", js.FuncOf(func(this js.Value, args []js.Value) any {
-		gotType = args[1].String()
+		gotType = args[1].Get("type").String()
 		return resolve(map[string]any{"n": 1})
 	}))
 
 	ns := KVNamespaceFromJS(fake)
-	got, err := ns.GetJSON("k")
+	got, err := ns.GetJSON("k", KVNamespaceGetOptions{Type: "json"})
 	if err != nil {
 		t.Fatalf("GetJSON() failed: %v", err)
 	}
 	if gotType != "json" {
-		t.Errorf("type literal sent to JS = %q, want %q", gotType, "json")
+		t.Errorf("type sent to JS = %q, want %q", gotType, "json")
 	}
 	if got.Get("n").Int() != 1 {
 		t.Errorf("GetJSON().Get(\"n\") = %v, want 1", got.Get("n").Int())
@@ -75,7 +80,7 @@ func TestKVNamespace_GetText_NilOnNull(t *testing.T) {
 	}))
 
 	ns := KVNamespaceFromJS(fake)
-	got, err := ns.GetText("missing")
+	got, err := ns.GetText("missing", KVNamespaceGetOptions{Type: "text"})
 	if err != nil {
 		t.Fatalf("GetText() failed: %v", err)
 	}
@@ -100,7 +105,7 @@ func TestKVNamespace_GetWithMetadata_CacheStatusNull(t *testing.T) {
 	}))
 
 	ns := KVNamespaceFromJS(fake)
-	got, err := ns.GetTextWithMetadata("k")
+	got, err := ns.GetTextWithMetadata("k", KVNamespaceGetOptions{Type: "text"})
 	if err != nil {
 		t.Fatalf("GetTextWithMetadata() failed: %v", err)
 	}

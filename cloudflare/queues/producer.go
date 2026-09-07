@@ -4,13 +4,15 @@ import (
 	"fmt"
 	"syscall/js"
 
+	queuesjs "github.com/syumai/workers-go/exp/cloudflare/queues"
+
 	"github.com/syumai/workers-go/cloudflare/internal/cfruntimecontext"
 	"github.com/syumai/workers-go/internal/jsutil"
 )
 
 type Producer struct {
 	// queue - Objects that Queue API belongs to. Default is Global
-	queue js.Value
+	queue *queuesjs.Queue
 }
 
 // NewProducer creates a new Producer object to send messages to a queue.
@@ -22,7 +24,7 @@ func NewProducer(queueName string) (*Producer, error) {
 	if inst.IsUndefined() {
 		return nil, fmt.Errorf("%s is undefined", queueName)
 	}
-	return &Producer{queue: inst}, nil
+	return &Producer{queue: queuesjs.QueueFromJS(inst)}, nil
 }
 
 // SendText sends a single text message to a queue.
@@ -60,8 +62,7 @@ func (p *Producer) send(body js.Value, contentType contentType, opts ...SendOpti
 		opt(&options)
 	}
 
-	prom := p.queue.Call("send", body, options.toJS())
-	_, err := jsutil.AwaitPromise(prom)
+	_, err := p.queue.Send(body, options.toQueuesJS())
 	return err
 }
 
@@ -72,12 +73,11 @@ func (p *Producer) SendBatch(messages []*MessageSendRequest, opts ...BatchSendOp
 		opt(&options)
 	}
 
-	jsArray := jsutil.NewArray(len(messages))
+	reqs := make([]queuesjs.MessageSendRequest, len(messages))
 	for i, message := range messages {
-		jsArray.SetIndex(i, message.toJS())
+		reqs[i] = message.toQueuesJS()
 	}
 
-	prom := p.queue.Call("sendBatch", jsArray, options.toJS())
-	_, err := jsutil.AwaitPromise(prom)
+	_, err := p.queue.SendBatch(reqs, options.toQueuesJS())
 	return err
 }

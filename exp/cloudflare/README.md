@@ -17,7 +17,13 @@ Everything under `exp/`, including this tree, is **experimental**:
 * There is no attempt to hide Cloudflare's TypeScript API surface behind a
   more Go-idiomatic one here; the goal is coverage, not idiom. Prefer the
   hand-written packages under `cloudflare/` (`kv`, `r2`, `d1`, `queues`,
-  `sockets`, ...) where one already exists for the API you need.
+  `sockets`, ...) where one already exists for the API you need. Some of
+  these (`kv`, `r2`, `cache`, and the producer side of `queues`) are
+  themselves thin wrappers around a package here — see "A hand-written
+  package wrapping a generated one" below — and can round out the
+  generated API's rough edges; `cloudflare/kv`, for instance, returns a
+  proper `kv.ErrNotFound` where the generated `KVNamespace.GetText` would
+  otherwise hand back a nil `*string` for a missing key.
 * Use `exp/cloudflare/<pkg>` directly for APIs that don't have a hand-written
   package yet, or reach into `JSValue()` on any generated handle type when
   the wrapper doesn't expose something you need.
@@ -64,6 +70,20 @@ exp/cloudflare/<pkg>/<pkg>.go                                (hand-written, only
   `cloudflare/sockets`) and `cf` (`FromRequest`/`FromJS`, which read
   `request.cf` off a `*http.Request` — there's no IR declaration to
   generate those from at all) for examples.
+
+### A hand-written package wrapping a generated one
+
+`cloudflare/kv` is the reference example of a *third* kind of package: a
+hand-written L2 that wraps a generated L1 (`exp/cloudflare/kv`, imported as
+`kvjs`) instead of extending it in place. `kv.Namespace` holds a
+`*kvjs.KVNamespace`; each L2 method (`GetString`, `PutString`, `List`, ...)
+builds the right `kvjs.KVNamespaceGetOptions`/`...PutOptions`/... value —
+including the "text"/"json"/"arrayBuffer"/"stream" `Type` discriminant
+`KVNamespace.get` needs — calls the matching generated method, and adapts
+the result to L2's own, narrower, pre-existing API (e.g. turning a nil
+`*string` from `GetText` into `kv.ErrNotFound`). `cloudflare/r2`, `cache`,
+and `queues`' producer side (`Producer`, `MessageSendRequest`, ...) follow
+the same pattern against `exp/cloudflare/{r2,cache,queues}`.
 
 ## Regenerating the bindings
 

@@ -6,14 +6,16 @@
 // (https://developers.cloudflare.com/kv/).
 //
 // KVNamespace.get and .getWithMetadata are each overloaded on a "type"
-// discriminant (a literal "text"/"json"/"arrayBuffer"/"stream" argument, or
-// an options object carrying the same as its "type" field); cfgen only
-// knows how to split on the plain literal-argument form, so this package
+// discriminant, either as a plain literal "text"/"json"/"arrayBuffer"/
+// "stream" argument, or as an options object carrying the same value as
+// its "type" field (KVNamespaceGetOptions<"text"> etc., needed to also
+// pass cacheTtl). This package uses the options-object overloads, so it
 // exposes GetText/GetJSON/GetBytes/GetStream (and the WithMetadata
-// variants) and drops the options-object overloads. The json variants
-// return js.Value rather than a decoded value, since the JSON shape is
-// caller-defined (KVNamespace<Key>'s "get<ExpectedValue>(..., "json")"
-// generic has no default to map to a concrete Go type).
+// variants) each taking a KVNamespaceGetOptions; the caller (L2) is
+// responsible for setting its Type field to the matching value. The json
+// variants return js.Value rather than a decoded value, since the JSON
+// shape is caller-defined (KVNamespace<Key>'s "get<ExpectedValue>(...,
+// "json")" generic has no default to map to a concrete Go type).
 package kv
 
 import (
@@ -42,8 +44,8 @@ func NewKVNamespace(bindingName string) (*KVNamespace, error) {
 }
 
 // GetText
-func (x *KVNamespace) GetText(key string) (*string, error) {
-	p, err := jsrt.Call(x.v, "get", key, "text")
+func (x *KVNamespace) GetText(key string, options KVNamespaceGetOptions) (*string, error) {
+	p, err := jsrt.Call(x.v, "get", key, options.toJS())
 	if err != nil {
 		return nil, err
 	}
@@ -61,8 +63,8 @@ func (x *KVNamespace) GetText(key string) (*string, error) {
 }
 
 // GetJSON
-func (x *KVNamespace) GetJSON(key string) (js.Value, error) {
-	p, err := jsrt.Call(x.v, "get", key, "json")
+func (x *KVNamespace) GetJSON(key string, options KVNamespaceGetOptions) (js.Value, error) {
+	p, err := jsrt.Call(x.v, "get", key, options.toJS())
 	if err != nil {
 		return js.Undefined(), err
 	}
@@ -76,8 +78,8 @@ func (x *KVNamespace) GetJSON(key string) (js.Value, error) {
 }
 
 // GetBytes
-func (x *KVNamespace) GetBytes(key string) ([]byte, error) {
-	p, err := jsrt.Call(x.v, "get", key, "arrayBuffer")
+func (x *KVNamespace) GetBytes(key string, options KVNamespaceGetOptions) ([]byte, error) {
+	p, err := jsrt.Call(x.v, "get", key, options.toJS())
 	if err != nil {
 		return nil, err
 	}
@@ -93,8 +95,8 @@ func (x *KVNamespace) GetBytes(key string) ([]byte, error) {
 }
 
 // GetStream
-func (x *KVNamespace) GetStream(key string) (io.ReadCloser, error) {
-	p, err := jsrt.Call(x.v, "get", key, "stream")
+func (x *KVNamespace) GetStream(key string, options KVNamespaceGetOptions) (io.ReadCloser, error) {
+	p, err := jsrt.Call(x.v, "get", key, options.toJS())
 	if err != nil {
 		return nil, err
 	}
@@ -139,8 +141,8 @@ func (x *KVNamespace) Put(key string, value js.Value, options KVNamespacePutOpti
 }
 
 // GetTextWithMetadata
-func (x *KVNamespace) GetTextWithMetadata(key string) (KVNamespaceGetWithMetadataResult, error) {
-	p, err := jsrt.Call(x.v, "getWithMetadata", key, "text")
+func (x *KVNamespace) GetTextWithMetadata(key string, options KVNamespaceGetOptions) (KVNamespaceGetWithMetadataResult, error) {
+	p, err := jsrt.Call(x.v, "getWithMetadata", key, options.toJS())
 	if err != nil {
 		return KVNamespaceGetWithMetadataResult{}, err
 	}
@@ -158,8 +160,8 @@ func (x *KVNamespace) GetTextWithMetadata(key string) (KVNamespaceGetWithMetadat
 }
 
 // GetJSONWithMetadata
-func (x *KVNamespace) GetJSONWithMetadata(key string) (KVNamespaceGetWithMetadataResult, error) {
-	p, err := jsrt.Call(x.v, "getWithMetadata", key, "json")
+func (x *KVNamespace) GetJSONWithMetadata(key string, options KVNamespaceGetOptions) (KVNamespaceGetWithMetadataResult, error) {
+	p, err := jsrt.Call(x.v, "getWithMetadata", key, options.toJS())
 	if err != nil {
 		return KVNamespaceGetWithMetadataResult{}, err
 	}
@@ -177,8 +179,8 @@ func (x *KVNamespace) GetJSONWithMetadata(key string) (KVNamespaceGetWithMetadat
 }
 
 // GetBytesWithMetadata
-func (x *KVNamespace) GetBytesWithMetadata(key string) (KVNamespaceGetWithMetadataResult, error) {
-	p, err := jsrt.Call(x.v, "getWithMetadata", key, "arrayBuffer")
+func (x *KVNamespace) GetBytesWithMetadata(key string, options KVNamespaceGetOptions) (KVNamespaceGetWithMetadataResult, error) {
+	p, err := jsrt.Call(x.v, "getWithMetadata", key, options.toJS())
 	if err != nil {
 		return KVNamespaceGetWithMetadataResult{}, err
 	}
@@ -196,8 +198,8 @@ func (x *KVNamespace) GetBytesWithMetadata(key string) (KVNamespaceGetWithMetada
 }
 
 // GetStreamWithMetadata
-func (x *KVNamespace) GetStreamWithMetadata(key string) (KVNamespaceGetWithMetadataResult, error) {
-	p, err := jsrt.Call(x.v, "getWithMetadata", key, "stream")
+func (x *KVNamespace) GetStreamWithMetadata(key string, options KVNamespaceGetOptions) (KVNamespaceGetWithMetadataResult, error) {
+	p, err := jsrt.Call(x.v, "getWithMetadata", key, options.toJS())
 	if err != nil {
 		return KVNamespaceGetWithMetadataResult{}, err
 	}
@@ -226,11 +228,15 @@ func (x *KVNamespace) Delete(key string) error {
 
 // KVNamespaceGetOptions
 type KVNamespaceGetOptions struct {
-	CacheTTL int `js:"cacheTtl"`
+	Type     string `js:"type"`
+	CacheTTL int    `js:"cacheTtl"`
 }
 
 func kVNamespaceGetOptionsFromJS(v js.Value) (KVNamespaceGetOptions, error) {
 	var out KVNamespaceGetOptions
+	{
+		out.Type = v.Get("type").String()
+	}
 	{
 		if s := v.Get("cacheTtl"); !s.IsUndefined() && !s.IsNull() {
 			out.CacheTTL = s.Int()
@@ -241,6 +247,9 @@ func kVNamespaceGetOptionsFromJS(v js.Value) (KVNamespaceGetOptions, error) {
 
 func (o KVNamespaceGetOptions) toJS() js.Value {
 	obj := jsrt.NewObject()
+	if o.Type != "" {
+		obj.Set("type", o.Type)
+	}
 	if o.CacheTTL != 0 {
 		obj.Set("cacheTtl", o.CacheTTL)
 	}

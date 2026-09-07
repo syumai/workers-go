@@ -1,10 +1,9 @@
 package queues
 
 import (
-	"syscall/js"
 	"time"
 
-	"github.com/syumai/workers-go/internal/jsutil"
+	queuesjs "github.com/syumai/workers-go/exp/cloudflare/queues"
 )
 
 type batchSendOptions struct {
@@ -13,17 +12,11 @@ type batchSendOptions struct {
 	DelaySeconds int
 }
 
-func (o *batchSendOptions) toJS() js.Value {
+func (o *batchSendOptions) toQueuesJS() queuesjs.QueueSendBatchOptions {
 	if o == nil {
-		return js.Undefined()
+		return queuesjs.QueueSendBatchOptions{}
 	}
-
-	obj := jsutil.NewObject()
-	if o.DelaySeconds != 0 {
-		obj.Set("delaySeconds", o.DelaySeconds)
-	}
-
-	return obj
+	return queuesjs.QueueSendBatchOptions{DelaySeconds: o.DelaySeconds}
 }
 
 type BatchSendOption func(*batchSendOptions)

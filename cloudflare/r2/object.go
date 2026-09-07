@@ -2,18 +2,17 @@ package r2
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"syscall/js"
 	"time"
 
-	"github.com/syumai/workers-go/internal/jsutil"
+	r2js "github.com/syumai/workers-go/exp/cloudflare/r2"
 )
 
 // Object represents Cloudflare R2 object.
 //   - https://github.com/cloudflare/workers-types/blob/3012f263fb1239825e5f0061b267c8650d01b717/index.d.ts#L1094
 type Object struct {
-	instance       js.Value
+	instance       r2ObjectLike
 	Key            string
 	Version        string
 	Size           int
@@ -28,47 +27,52 @@ type Object struct {
 	Body io.ReadCloser
 }
 
+// r2ObjectLike is the subset of *r2js.R2Object's and *r2js.R2ObjectBody's
+// getters used to populate an *Object; R2ObjectBody's handle-extends
+// relationship to R2Object means both types implement it, so toObject
+// below can build an *Object from either a Head/Put result (R2Object) or a
+// Get result (R2ObjectBody).
+type r2ObjectLike interface {
+	JSValue() js.Value
+	Key() string
+	Version() string
+	Size() int
+	Etag() string
+	HTTPEtag() string
+	Uploaded() time.Time
+	HTTPMetadata() r2js.R2HTTPMetadata
+	CustomMetadata() map[string]string
+}
+
 // TODO: implement
 //   - https://github.com/cloudflare/workers-types/blob/3012f263fb1239825e5f0061b267c8650d01b717/index.d.ts#L1106
 // func (o *Object) WriteHTTPMetadata(headers http.Header) {
 // }
 
 func (o *Object) BodyUsed() (bool, error) {
-	v := o.instance.Get("bodyUsed")
+	v := o.instance.JSValue().Get("bodyUsed")
 	if v.IsUndefined() {
 		return false, errors.New("bodyUsed doesn't exist for this Object")
 	}
 	return v.Bool(), nil
 }
 
-// toObject converts JavaScript side's Object to *Object.
-//   - https://github.com/cloudflare/workers-types/blob/3012f263fb1239825e5f0061b267c8650d01b717/index.d.ts#L1094
-func toObject(v js.Value) (*Object, error) {
-	uploaded, err := jsutil.DateToTime(v.Get("uploaded"))
-	if err != nil {
-		return nil, fmt.Errorf("error converting uploaded: %w", err)
-	}
-	r2Meta, err := toHTTPMetadata(v.Get("httpMetadata"))
-	if err != nil {
-		return nil, fmt.Errorf("error converting httpMetadata: %w", err)
-	}
-	bodyVal := v.Get("body")
-	var body io.ReadCloser
-	if !bodyVal.IsUndefined() {
-		body = jsutil.ConvertReadableStreamToReadCloser(v.Get("body"))
-	}
+// toObject converts o (an *r2js.R2Object, from Head/Put, or an
+// *r2js.R2ObjectBody, from Get) to an *Object. body is the object's stream
+// body, if any; callers pass nil for Head/Put results, which never have one.
+func toObject(o r2ObjectLike, body io.ReadCloser) *Object {
 	return &Object{
-		instance:       v,
-		Key:            v.Get("key").String(),
-		Version:        v.Get("version").String(),
-		Size:           v.Get("size").Int(),
-		ETag:           v.Get("etag").String(),
-		HTTPETag:       v.Get("httpEtag").String(),
-		Uploaded:       uploaded,
-		HTTPMetadata:   r2Meta,
-		CustomMetadata: jsutil.StrRecordToMap(v.Get("customMetadata")),
+		instance:       o,
+		Key:            o.Key(),
+		Version:        o.Version(),
+		Size:           o.Size(),
+		ETag:           o.Etag(),
+		HTTPETag:       o.HTTPEtag(),
+		Uploaded:       o.Uploaded(),
+		HTTPMetadata:   HTTPMetadata(o.HTTPMetadata()),
+		CustomMetadata: o.CustomMetadata(),
 		Body:           body,
-	}, nil
+	}
 }
 
 // HTTPMetadata represents metadata of Object.
@@ -80,42 +84,4 @@ type HTTPMetadata struct {
 	ContentEncoding    string
 	CacheControl       string
 	CacheExpiry        time.Time
-}
-
-func toHTTPMetadata(v js.Value) (HTTPMetadata, error) {
-	if v.IsUndefined() || v.IsNull() {
-		return HTTPMetadata{}, nil
-	}
-	cacheExpiry, err := jsutil.MaybeDate(v.Get("cacheExpiry"))
-	if err != nil {
-		return HTTPMetadata{}, fmt.Errorf("error converting cacheExpiry: %w", err)
-	}
-	return HTTPMetadata{
-		ContentType:        jsutil.MaybeString(v.Get("contentType")),
-		ContentLanguage:    jsutil.MaybeString(v.Get("contentLanguage")),
-		ContentDisposition: jsutil.MaybeString(v.Get("contentDisposition")),
-		ContentEncoding:    jsutil.MaybeString(v.Get("contentEncoding")),
-		CacheControl:       jsutil.MaybeString(v.Get("cacheControl")),
-		CacheExpiry:        cacheExpiry,
-	}, nil
-}
-
-func (md *HTTPMetadata) toJS() js.Value {
-	obj := jsutil.NewObject()
-	kv := map[string]string{
-		"contentType":        md.ContentType,
-		"contentLanguage":    md.ContentLanguage,
-		"contentDisposition": md.ContentDisposition,
-		"contentEncoding":    md.ContentEncoding,
-		"cacheControl":       md.CacheControl,
-	}
-	for k, v := range kv {
-		if v != "" {
-			obj.Set(k, v)
-		}
-	}
-	if !md.CacheExpiry.IsZero() {
-		obj.Set("cacheExpiry", jsutil.TimeToDate(md.CacheExpiry))
-	}
-	return obj
 }

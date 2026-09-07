@@ -4,14 +4,16 @@ doc: |
   (https://developers.cloudflare.com/kv/).
 
   KVNamespace.get and .getWithMetadata are each overloaded on a "type"
-  discriminant (a literal "text"/"json"/"arrayBuffer"/"stream" argument, or
-  an options object carrying the same as its "type" field); cfgen only
-  knows how to split on the plain literal-argument form, so this package
+  discriminant, either as a plain literal "text"/"json"/"arrayBuffer"/
+  "stream" argument, or as an options object carrying the same value as
+  its "type" field (KVNamespaceGetOptions<"text"> etc., needed to also
+  pass cacheTtl). This package uses the options-object overloads, so it
   exposes GetText/GetJSON/GetBytes/GetStream (and the WithMetadata
-  variants) and drops the options-object overloads. The json variants
-  return js.Value rather than a decoded value, since the JSON shape is
-  caller-defined (KVNamespace<Key>'s "get<ExpectedValue>(..., "json")"
-  generic has no default to map to a concrete Go type).
+  variants) each taking a KVNamespaceGetOptions; the caller (L2) is
+  responsible for setting its Type field to the matching value. The json
+  variants return js.Value rather than a decoded value, since the JSON
+  shape is caller-defined (KVNamespace<Key>'s "get<ExpectedValue>(...,
+  "json")" generic has no default to map to a concrete Go type).
 include:
   - KVNamespace
   - KVNamespaceGetOptions
@@ -23,8 +25,12 @@ include:
 bindings:
   - KVNamespace
 types:
-  # KVNamespaceGetOptions.type only exists to select which get() overload
-  # applies; it's dropped (below) rather than represented as a field.
+  # KVNamespaceGetOptions.type has no default for its type parameter, so
+  # cfgen would otherwise map it to js.Value; it's really just the same
+  # "text"/"json"/"arrayBuffer"/"stream" discriminant as the plain-literal
+  # get() overloads, so keep it a plain string that the caller (L2) fills
+  # in per overload.
+  KVNamespaceGetOptions.type: "string"
   KVNamespaceGetOptions.cacheTtl: "int"
   KVNamespacePutOptions.expiration: "int"
   KVNamespacePutOptions.expirationTtl: "int"
@@ -33,15 +39,15 @@ types:
   # accepting a string/[]byte/io.Reader and producing the right JS value.
   KVNamespace.put.params.value: "js.Value"
 overloads:
+  # Indices 5-8 are the KVNamespaceGetOptions<"type"> overloads (the plain
+  # literal-argument overloads at indices 1-4 don't carry cacheTtl).
   KVNamespace.get:
-    - { index: 1, name: GetText, literal: text }
-    - { index: 2, name: GetJSON, literal: json }
-    - { index: 3, name: GetBytes, literal: arrayBuffer }
-    - { index: 4, name: GetStream, literal: stream }
+    - { index: 5, name: GetText }
+    - { index: 6, name: GetJSON }
+    - { index: 7, name: GetBytes }
+    - { index: 8, name: GetStream }
   KVNamespace.getWithMetadata:
-    - { index: 1, name: GetTextWithMetadata, literal: text }
-    - { index: 2, name: GetJSONWithMetadata, literal: json }
-    - { index: 3, name: GetBytesWithMetadata, literal: arrayBuffer }
-    - { index: 4, name: GetStreamWithMetadata, literal: stream }
-exclude:
-  - KVNamespaceGetOptions.type
+    - { index: 5, name: GetTextWithMetadata }
+    - { index: 6, name: GetJSONWithMetadata }
+    - { index: 7, name: GetBytesWithMetadata }
+    - { index: 8, name: GetStreamWithMetadata }

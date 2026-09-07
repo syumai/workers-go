@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	queuesjs "github.com/syumai/workers-go/exp/cloudflare/queues"
+
 	"github.com/syumai/workers-go/internal/jsutil"
 )
 
@@ -24,7 +26,18 @@ func validatingProducer(t *testing.T, validateFn func(message js.Value, options 
 					// must be non-fatal to avoid a deadlock
 					t.Errorf("validation failed: %v", err)
 				}
-				resolve.Invoke(js.Undefined())
+				// Resolve with a well-formed QueueSend(Batch)Response: the
+				// generated Queue.Send/SendBatch this Producer now delegates
+				// to decodes the resolved value's shape, unlike the raw
+				// AwaitPromise this test used to exercise directly.
+				resolve.Invoke(map[string]any{
+					"metadata": map[string]any{
+						"metrics": map[string]any{
+							"backlogCount": 0,
+							"backlogBytes": 0,
+						},
+					},
+				})
 			}()
 			return js.Undefined()
 		}))
@@ -34,7 +47,7 @@ func validatingProducer(t *testing.T, validateFn func(message js.Value, options 
 	queue.Set("send", sendFn)
 	queue.Set("sendBatch", sendFn)
 
-	return &Producer{queue: queue}
+	return &Producer{queue: queuesjs.QueueFromJS(queue)}
 }
 
 func TestSend(t *testing.T) {
@@ -89,20 +102,22 @@ func TestSendBatch(t *testing.T) {
 		if batch.Length() != 2 {
 			return fmt.Errorf("expected 2 messages, got %d", batch.Length())
 		}
+		// body/contentType/delaySeconds are flat fields on each message, per
+		// the real MessageSendRequest shape (not nested under "options").
 		first := batch.Index(0)
 		if first.Get("body").String() != "hello" {
 			return fmt.Errorf("first message body must be 'hello', was %s", first.Get("body"))
 		}
-		if first.Get("options").Get("contentType").String() != "json" {
-			return fmt.Errorf("first message content type must be json, was %s", first.Get("options").Get("contentType"))
+		if first.Get("contentType").String() != "json" {
+			return fmt.Errorf("first message content type must be json, was %s", first.Get("contentType"))
 		}
 
 		second := batch.Index(1)
 		if second.Get("body").String() != "world" {
 			return fmt.Errorf("second message body must be 'world', was %s", second.Get("body"))
 		}
-		if second.Get("options").Get("contentType").String() != "text" {
-			return fmt.Errorf("second message content type must be text, was %s", second.Get("options").Get("contentType"))
+		if second.Get("contentType").String() != "text" {
+			return fmt.Errorf("second message content type must be text, was %s", second.Get("contentType"))
 		}
 
 		return nil
