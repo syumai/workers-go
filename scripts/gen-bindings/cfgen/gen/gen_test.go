@@ -132,6 +132,131 @@ func TestDeclHasMemberSeesFlattenedFields(t *testing.T) {
 	}
 }
 
+// TestGenerateGolden2 exercises the cfgen extensions from
+// tmp/06-codegen-spec.md section 2.1: overload index/literal splitting with
+// a skipped variant (and its warning), typeParam defaults, nullable
+// Promise returns for a prim/handle/data type, handle-extends flattening,
+// union-of-object-literals data merging (as a top-level alias and as an
+// intersection operand), and Iterable<T> params.
+func TestGenerateGolden2(t *testing.T) {
+	doc := loadFixtureIR(t, filepath.Join("testdata", "fixture2.json"))
+	ov, err := LoadOverrides(filepath.Join("testdata", "fixture2.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ov.Validate(doc); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Generate(doc, ov)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantWarnings := []string{
+		// Encoding (Store.get's overload-2 method typeParam) has no
+		// default, so it falls back to js.Value with a warning, same as
+		// any other unresolvable typeParam (spec item 2's "no default"
+		// case).
+		`type parameter "Encoding" used outside of a supported context, falling back to js.Value`,
+		`Store.get: skipping overload 0 (2 params) with no overloads: entry`,
+	}
+	if !slicesEqual(wantWarnings, result.Warnings) {
+		t.Errorf("Warnings = %v, want %v", result.Warnings, wantWarnings)
+	}
+
+	// tmp/06-codegen-spec.md 1.3's nested-data-type pointer rule: an
+	// optional or nullable field whose type is itself an included data
+	// type becomes *T (Config.Opt, Config.Nullable), while a required one
+	// of the same type stays a plain value (Config.Req), and an optional
+	// handle-type ref is unaffected (Config.Owner was already *Parent).
+	src := string(result.Source)
+	for _, want := range []string{
+		"Req      Box     `js:\"req\"`",
+		"Opt      *Box    `js:\"opt\"`",
+		"Nullable *Box    `js:\"nullable\"`",
+		"Owner    *Parent `js:\"owner\"`",
+		"if !jsrt.IsNil(v.Get(\"opt\")) {",
+		"if o.Opt != nil {",
+		"obj.Set(\"opt\", (*o.Opt).toJS())",
+		// A types: override naming an included data declaration
+		// (Config.altBox -> Box) triggers the same pointer treatment.
+		"AltBox *Box `js:\"altBox\"`",
+		"if o.AltBox != nil {",
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("generated source missing %q", want)
+		}
+	}
+
+	goldenPath := filepath.Join("testdata", "fixture2.golden.go.txt")
+	if *update {
+		if err := os.WriteFile(goldenPath, result.Source, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(result.Source) != string(want) {
+		t.Errorf("generated output does not match golden file %s (run `go test ./cfgen/gen/... -update` to refresh it if the change is intentional)\n--- got ---\n%s\n--- want ---\n%s", goldenPath, result.Source, want)
+	}
+}
+
+// TestOverloadsRejectsBadEntries covers the overloads: validation errors:
+// an out-of-range index, a duplicate index, and a literal that doesn't
+// match any parameter of the selected overload (an upstream reordering
+// guard, per spec item 1).
+func TestOverloadsRejectsBadEntries(t *testing.T) {
+	doc := loadFixtureIR(t, filepath.Join("testdata", "fixture2.json"))
+	cases := []struct {
+		name string
+		ov   Overrides
+	}{
+		{
+			"index out of range",
+			Overrides{Package: "x", Include: []string{"Store", "Parent", "Box"}, Overloads: map[string][]OverloadEntry{
+				"Store.get": {{Index: 99, Name: "GetText", Literal: "text"}},
+			}},
+		},
+		{
+			"duplicate index",
+			Overrides{Package: "x", Include: []string{"Store", "Parent", "Box"}, Overloads: map[string][]OverloadEntry{
+				"Store.get": {{Index: 1, Name: "GetText", Literal: "text"}, {Index: 1, Name: "GetText2", Literal: "text"}},
+			}},
+		},
+		{
+			"literal mismatch",
+			Overrides{Package: "x", Include: []string{"Store", "Parent", "Box"}, Overloads: map[string][]OverloadEntry{
+				"Store.get": {{Index: 1, Name: "GetText", Literal: "does-not-exist"}},
+			}},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			c.ov.Path = "fixture2"
+			if err := c.ov.Validate(doc); err != nil {
+				// Index-range/duplicate checks happen in Validate.
+				return
+			}
+			if _, err := Generate(doc, &c.ov); err == nil {
+				t.Errorf("expected an error, got nil")
+			}
+		})
+	}
+}
+
+func slicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestPascalCase(t *testing.T) {
 	cases := map[string]string{
 		"cacheTtl":       "CacheTTL",

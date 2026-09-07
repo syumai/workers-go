@@ -80,7 +80,7 @@ type IncomingRequestCFProperties struct {
 	// Metadata containing the [`HELLO`](https://www.rfc-editor.org/rfc/rfc5246#section-7.4.1.2) and [`FINISHED`](https://www.rfc-editor.org/rfc/rfc5246#section-7.4.9) messages from this request's TLS handshake.
 	//
 	// If the incoming request was served over plaintext (without TLS) this field is undefined.
-	TLSExportedAuthenticator IncomingRequestCFPropertiesExportedAuthenticatorMetadata `js:"tlsExportedAuthenticator"`
+	TLSExportedAuthenticator *IncomingRequestCFPropertiesExportedAuthenticatorMetadata `js:"tlsExportedAuthenticator"`
 	// Results of Cloudflare's Bot Management analysis
 	BotManagement js.Value `js:"botManagement"`
 	// Duplicate of `botManagement.score`.
@@ -200,12 +200,14 @@ func incomingRequestCFPropertiesFromJS(v js.Value) (IncomingRequestCFProperties,
 		out.TLSCipher = v.Get("tlsCipher").String()
 	}
 	{
-		if s := v.Get("tlsExportedAuthenticator"); !s.IsUndefined() && !s.IsNull() {
-			if tmp, err := incomingRequestCFPropertiesExportedAuthenticatorMetadataFromJS(s); err != nil {
+		if !jsrt.IsNil(v.Get("tlsExportedAuthenticator")) {
+			var val IncomingRequestCFPropertiesExportedAuthenticatorMetadata
+			if tmp, err := incomingRequestCFPropertiesExportedAuthenticatorMetadataFromJS(v.Get("tlsExportedAuthenticator")); err != nil {
 				return IncomingRequestCFProperties{}, err
 			} else {
-				out.TLSExportedAuthenticator = tmp
+				val = tmp
 			}
+			out.TLSExportedAuthenticator = &val
 		}
 	}
 	{
@@ -312,8 +314,8 @@ func (o IncomingRequestCFProperties) toJS() js.Value {
 	if o.TLSCipher != "" {
 		obj.Set("tlsCipher", o.TLSCipher)
 	}
-	if true {
-		obj.Set("tlsExportedAuthenticator", o.TLSExportedAuthenticator.toJS())
+	if o.TLSExportedAuthenticator != nil {
+		obj.Set("tlsExportedAuthenticator", (*o.TLSExportedAuthenticator).toJS())
 	}
 	if !jsrt.IsNil(o.BotManagement) {
 		obj.Set("botManagement", o.BotManagement)
@@ -418,7 +420,7 @@ type IncomingRequestCFPropertiesBase struct {
 	// Metadata containing the [`HELLO`](https://www.rfc-editor.org/rfc/rfc5246#section-7.4.1.2) and [`FINISHED`](https://www.rfc-editor.org/rfc/rfc5246#section-7.4.9) messages from this request's TLS handshake.
 	//
 	// If the incoming request was served over plaintext (without TLS) this field is undefined.
-	TLSExportedAuthenticator IncomingRequestCFPropertiesExportedAuthenticatorMetadata `js:"tlsExportedAuthenticator"`
+	TLSExportedAuthenticator *IncomingRequestCFPropertiesExportedAuthenticatorMetadata `js:"tlsExportedAuthenticator"`
 }
 
 func incomingRequestCFPropertiesBaseFromJS(v js.Value) (IncomingRequestCFPropertiesBase, error) {
@@ -462,12 +464,14 @@ func incomingRequestCFPropertiesBaseFromJS(v js.Value) (IncomingRequestCFPropert
 		out.TLSCipher = v.Get("tlsCipher").String()
 	}
 	{
-		if s := v.Get("tlsExportedAuthenticator"); !s.IsUndefined() && !s.IsNull() {
-			if tmp, err := incomingRequestCFPropertiesExportedAuthenticatorMetadataFromJS(s); err != nil {
+		if !jsrt.IsNil(v.Get("tlsExportedAuthenticator")) {
+			var val IncomingRequestCFPropertiesExportedAuthenticatorMetadata
+			if tmp, err := incomingRequestCFPropertiesExportedAuthenticatorMetadataFromJS(v.Get("tlsExportedAuthenticator")); err != nil {
 				return IncomingRequestCFPropertiesBase{}, err
 			} else {
-				out.TLSExportedAuthenticator = tmp
+				val = tmp
 			}
+			out.TLSExportedAuthenticator = &val
 		}
 	}
 	return out, nil
@@ -505,8 +509,8 @@ func (o IncomingRequestCFPropertiesBase) toJS() js.Value {
 	if o.TLSCipher != "" {
 		obj.Set("tlsCipher", o.TLSCipher)
 	}
-	if true {
-		obj.Set("tlsExportedAuthenticator", o.TLSExportedAuthenticator.toJS())
+	if o.TLSExportedAuthenticator != nil {
+		obj.Set("tlsExportedAuthenticator", (*o.TLSExportedAuthenticator).toJS())
 	}
 	return obj
 }

@@ -1,0 +1,70 @@
+package: r2
+doc: |
+  Package r2 provides the R2 bucket binding
+  (https://developers.cloudflare.com/r2/).
+
+  R2Bucket.get and .put are each overloaded on whether "options" carries an
+  extra onlyIf-as-Headers field cfgen can't express generically; only the
+  plain (R2GetOptions/R2PutOptions) overload is generated, as Get/Put.
+include:
+  - R2Bucket
+  - R2Object
+  - R2ObjectBody
+  - R2Objects
+  - R2GetOptions
+  - R2PutOptions
+  - R2ListOptions
+  - R2HTTPMetadata
+  - R2Range
+  - R2Conditional
+  - R2Checksums
+  - R2StringChecksums
+  - R2MultipartOptions
+  - R2MultipartUpload
+  - R2UploadedPart
+  - R2UploadPartOptions
+bindings:
+  - R2Bucket
+types:
+  # value is (ReadableStream | ArrayBuffer | ArrayBufferView | string | null
+  # | Blob); the L2 r2 package is responsible for producing the right JS
+  # value from a string/[]byte/io.Reader.
+  R2Bucket.put.params.value: "js.Value"
+  R2Bucket.delete.params.keys: "[]string"
+  R2MultipartUpload.uploadPart.params.value: "js.Value"
+  R2Object.size: "int"
+  # R2ObjectBody inherits size from R2Object via handle-extends flattening,
+  # but a types: override doesn't automatically follow along with it (it's
+  # keyed to the declaration the getter is emitted on), so it's repeated
+  # here.
+  R2ObjectBody.size: "int"
+  R2UploadedPart.partNumber: "int"
+  # onlyIf/httpMetadata/range are each (<data type> | Headers) in the
+  # .d.ts; Headers is left to a Get/Put call built directly against the
+  # underlying js.Value (via JSValue()) rather than through these structs.
+  R2GetOptions.onlyIf: "R2Conditional"
+  R2GetOptions.range: "R2Range"
+  R2GetOptions.ssecKey: "string"
+  R2PutOptions.onlyIf: "R2Conditional"
+  R2PutOptions.httpMetadata: "R2HTTPMetadata"
+  R2PutOptions.md5: "string"
+  R2PutOptions.sha1: "string"
+  R2PutOptions.sha256: "string"
+  R2PutOptions.sha384: "string"
+  R2PutOptions.sha512: "string"
+  R2PutOptions.ssecKey: "string"
+  R2ListOptions.include: "[]string"
+  R2MultipartOptions.httpMetadata: "R2HTTPMetadata"
+  R2MultipartOptions.ssecKey: "string"
+  R2UploadPartOptions.ssecKey: "string"
+overloads:
+  R2Bucket.get:
+    - { index: 1, name: Get }
+  R2Bucket.put:
+    - { index: 1, name: Put }
+exclude:
+  # blob()/json() decode the body via the DOM Blob/arbitrary-JSON APIs,
+  # which aren't part of this binding's vocabulary; Bytes()/Text() (via
+  # bytes()/text()) and the raw Body stream cover the same ground.
+  - R2ObjectBody.blob
+  - R2ObjectBody.json

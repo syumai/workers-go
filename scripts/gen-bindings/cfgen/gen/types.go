@@ -35,7 +35,7 @@ func classify(declByName map[string]*ir.Decl, d *ir.Decl) DeclKind {
 		if t.K == "object" {
 			return KindAliasData
 		}
-		if t.K == "intersection" {
+		if t.K == "intersection" || t.K == "union" {
 			if _, ok := resolveDataMembers(declByName, d); ok {
 				return KindAliasData
 			}
@@ -86,6 +86,13 @@ type exprConv struct {
 	// should be *included* in the generated JS object (i.e. it is false
 	// when the value is the type's zero value and should be omitted).
 	OmitIfZero func(expr string) string
+
+	// SelfGuarded reports whether FromJS already guards against a
+	// null/undefined src internally (nilGuardWrap, pointerWrap): callers
+	// that would otherwise wrap the call in their own
+	// "if !s.IsUndefined() && !s.IsNull()" guard (genDataFromJS) can skip
+	// it and call FromJS unconditionally instead.
+	SelfGuarded bool
 }
 
 func scalarConv(goType, fromJS, zero string) exprConv {
@@ -123,6 +130,14 @@ type Package struct {
 	included   map[string]*ir.Decl
 	imports    map[string]bool
 	warnings   []string
+
+	// curDeclTypeParams and curMethodTypeParams are the typeParams in
+	// scope while generating the declaration (and, if applicable, the
+	// specific overload) currently being emitted; see typeParamType and
+	// tmp/06-codegen-spec.md 2.1 item 2. Method-level params shadow
+	// decl-level ones of the same name.
+	curDeclTypeParams   []ir.TypeParam
+	curMethodTypeParams []ir.TypeParam
 }
 
 func NewPackage(doc *ir.IR, ov *Overrides) *Package {
@@ -246,6 +261,9 @@ func (p *Package) convFor(t *ir.Type, override string) (exprConv, error) {
 		p.warnf("function types are not supported, falling back to js.Value")
 		return jsValueConv(), nil
 	case "typeParam":
+		if def := p.typeParamDefault(t.Name); def != nil {
+			return p.convFor(def, "")
+		}
 		p.warnf("type parameter %q used outside of a supported context, falling back to js.Value", t.Name)
 		return jsValueConv(), nil
 	case "unsupported":
@@ -254,6 +272,25 @@ func (p *Package) convFor(t *ir.Type, override string) (exprConv, error) {
 	}
 	p.warnf("unrecognized IR type kind %q, falling back to js.Value", t.K)
 	return jsValueConv(), nil
+}
+
+// typeParamDefault resolves the default type bound to a typeParam named
+// name, per tmp/06-codegen-spec.md 2.1 item 2: the method's own typeParams
+// (if it has one by this name) take precedence over the enclosing
+// declaration's. Returns nil if name isn't in scope, or is in scope but has
+// no default (both cases fall back to js.Value, per the spec table).
+func (p *Package) typeParamDefault(name string) *ir.Type {
+	for _, tp := range p.curMethodTypeParams {
+		if tp.Name == name {
+			return tp.Default
+		}
+	}
+	for _, tp := range p.curDeclTypeParams {
+		if tp.Name == name {
+			return tp.Default
+		}
+	}
+	return nil
 }
 
 func (p *Package) primConv(name string) exprConv {
@@ -442,7 +479,11 @@ func readCloserConv() exprConv {
 
 func (p *Package) refConv(t *ir.Type) (exprConv, error) {
 	switch t.Name {
-	case "Array":
+	case "Array", "Iterable":
+		// tmp/06-codegen-spec.md 2.1 item 7: Iterable<T> is treated exactly
+		// like Array<T> (a plain JS Array round-trips as a Go slice either
+		// way, and cfgen only ever needs to emit values, not consume
+		// arbitrary iterables).
 		var elem *ir.Type
 		if len(t.Args) > 0 {
 			elem = &t.Args[0]
@@ -516,6 +557,18 @@ func (p *Package) declRefConv(d *ir.Decl) (exprConv, error) {
 		return exprConv{
 			GoType: name,
 			FromJS: func(dst, src, failReturn string) []string {
+				if failReturn == "" {
+					// A getter's enclosing function returns a single
+					// value, so there's nowhere to propagate a decode
+					// error to; harmless in practice since a generated
+					// data-type FromJS never actually returns a non-nil
+					// error today. See genGetter.
+					return []string{
+						"if tmp, err := " + fromJSFunc + "(" + src + "); err == nil {",
+						"\t" + dst + " = tmp",
+						"}",
+					}
+				}
 				return []string{
 					"if tmp, err := " + fromJSFunc + "(" + src + "); err != nil {",
 					"\treturn " + failReturn + ", err",
@@ -544,6 +597,181 @@ func (p *Package) declRefConv(d *ir.Decl) (exprConv, error) {
 	}
 }
 
+// isNullableType reports whether t is a union including a null or
+// undefined variant (regardless of how many other variants remain), i.e.
+// whether decoding it needs an undefined/null guard even when the IR
+// doesn't mark the containing member itself "optional" (a TS property typed
+// `foo: string | null`, as opposed to `foo?: string`).
+func isNullableType(t *ir.Type) bool {
+	if t == nil || t.K != "union" {
+		return false
+	}
+	for _, mt := range t.Types {
+		if mt.K == "prim" && (mt.Name == "null" || mt.Name == "undefined") {
+			return true
+		}
+	}
+	return false
+}
+
+// splitNullable is isNullableType plus, when there's exactly one non-null
+// variant left after stripping null/undefined, that variant — used at
+// method-return positions to decide the "T | null -> (*T, error)" mapping
+// per tmp/06-codegen-spec.md 2.1 item 3. A multi-variant remainder (rare;
+// not exercised by any generated package today) reports not-nullable here,
+// leaving the whole union to fall back to convFor's ordinary (and, for a
+// non-single remainder, warning) union handling.
+func splitNullable(t *ir.Type) (*ir.Type, bool) {
+	if !isNullableType(t) {
+		return t, false
+	}
+	var nonNull []ir.Type
+	for _, mt := range t.Types {
+		if mt.K == "prim" && (mt.Name == "null" || mt.Name == "undefined") {
+			continue
+		}
+		nonNull = append(nonNull, mt)
+	}
+	if len(nonNull) != 1 {
+		return t, false
+	}
+	return &nonNull[0], true
+}
+
+// nullableReturnConv adapts conv (already resolved for nonNullType, the
+// stripped non-null variant of a Promise<T | null/undefined> or sync
+// T | null/undefined return type) to represent the "value absent" case
+// explicitly, per tmp/06-codegen-spec.md 2.1 item 3:
+//
+//   - js.Value is left alone: js.Undefined()/null already round-trip
+//     through it untouched, and callers use jsrt.IsNil to test it.
+//   - A type whose zero value already unambiguously means "absent" (a
+//     handle's *Name, []byte, io.ReadCloser, a map, a slice, ...; anything
+//     with ZeroExpr "nil") just gets an added guard so a JS
+//     null/undefined maps to that zero value instead of being handed to
+//     the inner FromJS (which, for a handle type in particular, would
+//     otherwise silently wrap the null value instead of reporting absence).
+//   - Anything else (a prim scalar - string/number/boolean - or a data
+//     struct) gets pointer-wrapped, since those types' zero values (""`,
+//     0, false, an all-zero-fields struct) are ordinary, valid values and
+//     so can't otherwise be told apart from "absent".
+func (p *Package) nullableReturnConv(conv exprConv) exprConv {
+	if conv.GoType == "js.Value" {
+		return conv
+	}
+	p.useImport("jsrt")
+	if conv.ZeroExpr == "nil" {
+		return nilGuardWrap(conv)
+	}
+	return pointerWrap(conv)
+}
+
+// nilGuardWrap wraps inner's FromJS so that a JS null/undefined source
+// short-circuits to inner's (already nil-ish) zero value instead of being
+// passed through to inner.FromJS.
+func nilGuardWrap(inner exprConv) exprConv {
+	wrapped := inner
+	wrapped.FromJS = func(dst, src, failReturn string) []string {
+		lines := []string{"if !jsrt.IsNil(" + src + ") {"}
+		lines = append(lines, indentAll(inner.FromJS(dst, src, failReturn))...)
+		lines = append(lines, "}")
+		return lines
+	}
+	wrapped.SelfGuarded = true
+	return wrapped
+}
+
+// pointerWrap turns inner's Go type T into *T, so a JS null/undefined
+// source can map to a nil pointer instead of T's (otherwise ambiguous,
+// looks-like-a-real-value) zero value.
+func pointerWrap(inner exprConv) exprConv {
+	goType := "*" + inner.GoType
+	return exprConv{
+		GoType: goType,
+		FromJS: func(dst, src, failReturn string) []string {
+			lines := []string{"if !jsrt.IsNil(" + src + ") {", "\tvar val " + inner.GoType}
+			lines = append(lines, indentAll(inner.FromJS("val", src, failReturn))...)
+			lines = append(lines, "\t"+dst+" = &val", "}")
+			return lines
+		},
+		ToJS: func(src string) ([]string, string) {
+			// Parenthesized so a method-call ToJS (e.g. a nested data
+			// type's "<expr>.toJS()") dereferences the pointer before
+			// calling, not after: "(*src).toJS()", not "*src.toJS()"
+			// (which - since .toJS() binds tighter than unary * - would
+			// try to dereference the js.Value result instead).
+			return inner.ToJS("(*" + src + ")")
+		},
+		ZeroExpr:    "nil",
+		OmitIfZero:  func(expr string) string { return expr + " != nil" },
+		SelfGuarded: true,
+	}
+}
+
+// nestedDataDeclFor returns the included data-shaped declaration a struct
+// field resolves to — either straight from its IR type (after stripping a
+// null/undefined union variant), or, when override is non-empty, from a
+// "types:" override that names an included declaration (e.g.
+// "R2Conditional", used to pick one branch of an otherwise-unresolvable
+// union) — or nil if it doesn't refer to one at all: a handle ref (already
+// *Name, correctly omitted via its own OmitIfZero), a scalar, js.Value, a
+// slice/map, or an override naming something other than an included data
+// declaration ("js.Value", "int", "[]string", ...).
+func (p *Package) nestedDataDeclFor(fieldType *ir.Type, override string) *ir.Decl {
+	name := override
+	if name == "" {
+		target := fieldType
+		if nn, ok := splitNullable(fieldType); ok {
+			target = nn
+		}
+		if target == nil || target.K != "ref" {
+			return nil
+		}
+		name = target.Name
+	}
+	d, ok := p.included[name]
+	if !ok {
+		return nil
+	}
+	switch classify(p.declByName, d) {
+	case KindData, KindAliasData:
+		return d
+	default:
+		return nil
+	}
+}
+
+// fieldConv resolves the conversion for one data-type struct field
+// (property member m of data-shaped declaration d), applying a "types:"
+// override if present and, per tmp/06-codegen-spec.md 1.3's "data 型" rule,
+// pointer-wrapping an optional-or-nullable field whose type resolves to a
+// nested data-type reference — whether directly (`field?: Other` /
+// `field: Other | null` / `field: Other | undefined`) or via a "types:"
+// override naming an included data declaration (e.g. R2GetOptions.onlyIf's
+// `types: R2Conditional`, picking one branch of an `R2Conditional |
+// Headers` union) — into `*Other`, omitted entirely when nil in toJS and
+// only allocated-and-decoded when present in fromJS. Without this, a
+// plain (non-pointer) struct field can't tell its zero value apart from
+// "the caller didn't set this", so toJS always sent it — e.g.
+// R2GetOptions.range / R2PutOptions.onlyIf previously always serialized
+// `{}` even when unset. A handle-type reference field is already *Name via
+// declRefConv and is unaffected; likewise a "types:" override naming
+// anything other than an included data declaration (js.Value, int,
+// []string, ...) is left exactly as specified.
+func (p *Package) fieldConv(d *ir.Decl, m ir.Member) (exprConv, error) {
+	override := p.typeOverride(d.Name, m.Name, "")
+	conv, err := p.convFor(m.Type, override)
+	if err != nil {
+		return exprConv{}, err
+	}
+	if m.Optional || isNullableType(m.Type) {
+		if p.nestedDataDeclFor(m.Type, override) != nil {
+			conv = pointerWrap(conv)
+		}
+	}
+	return conv, nil
+}
+
 func (p *Package) unionConv(t *ir.Type) (exprConv, error) {
 	if allStringLiterals(t.Types) {
 		return scalarConv("string", ".String()", `""`), nil
@@ -562,19 +790,38 @@ func (p *Package) unionConv(t *ir.Type) (exprConv, error) {
 	return jsValueConv(), nil
 }
 
-// convForOverride resolves a "types:" Go type override string.
+// convForOverride resolves a "types:" Go type override string. Besides the
+// fixed set of built-in spellings, per tmp/06-codegen-spec.md 2.1 item 6 the
+// override may also name a declaration in this package's include list
+// (used to pick one branch of an otherwise-unresolvable union, e.g.
+// "R2HTTPMetadata" for a field typed `R2HTTPMetadata | Headers`), optionally
+// wrapped as a slice ("[]MessageSendRequest").
 func (p *Package) convForOverride(t *ir.Type, override string) (exprConv, error) {
+	if elemName, ok := strings.CutPrefix(override, "[]"); ok {
+		elemConv, err := p.namedTypeConv(elemName)
+		if err != nil {
+			return exprConv{}, fmt.Errorf("unsupported types: override %q: %w", override, err)
+		}
+		return arrayOfConv(elemConv), nil
+	}
+	return p.namedTypeConv(override)
+}
+
+// namedTypeConv resolves a single (non-slice) "types:" override spelling:
+// either one of the fixed built-in names, or the name of a declaration in
+// this package's include list.
+func (p *Package) namedTypeConv(override string) (exprConv, error) {
 	switch override {
 	case "js.Value":
 		return jsValueConv(), nil
-	case "[]string":
-		return arrayOfConv(scalarConv("string", ".String()", `""`)), nil
-	case "[]float32":
-		return arrayOfConv(scalarConv32("float32", ".Float()")), nil
-	case "[]float64":
-		return arrayOfConv(scalarConv("float64", ".Float()", "0")), nil
-	case "[]bool":
-		return arrayOfConv(boolConv()), nil
+	case "string":
+		return scalarConv("string", ".String()", `""`), nil
+	case "float32":
+		return scalarConv32("float32", ".Float()"), nil
+	case "float64":
+		return scalarConv("float64", ".Float()", "0"), nil
+	case "bool":
+		return boolConv(), nil
 	case "int":
 		return exprConv{
 			GoType:     "int",
@@ -619,6 +866,9 @@ func (p *Package) convForOverride(t *ir.Type, override string) (exprConv, error)
 			OmitIfZero: func(expr string) string { return "len(" + expr + ") > 0" },
 		}, nil
 	default:
+		if d, ok := p.included[override]; ok {
+			return p.declRefConv(d)
+		}
 		return exprConv{}, fmt.Errorf("unsupported types: override %q", override)
 	}
 }

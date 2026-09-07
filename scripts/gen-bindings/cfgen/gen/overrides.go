@@ -10,24 +10,31 @@ import (
 	"github.com/syumai/workers-go/scripts/gen-bindings/cfgen/ir"
 )
 
-// OverloadRule describes how to split an overloaded method into distinct Go
-// methods, keyed by the literal value of one of its parameters.
-type OverloadRule struct {
-	By    string            `yaml:"by"` // "literal:<paramIndex>"
-	Names map[string]string `yaml:"names"`
+// OverloadEntry selects one overload (by its 0-based position among same-
+// named members) of an overloaded method to generate as a distinct Go
+// method named Name. Literal, if set, names the string literal value that
+// one of the overload's parameters must have (a "discriminant" parameter,
+// e.g. `type: "text"`); that parameter is dropped from the generated Go
+// signature and passed as a constant at the call site instead. Overloads
+// whose index isn't listed in the entries for a given method are skipped
+// (with a warning) rather than generated.
+type OverloadEntry struct {
+	Index   int    `yaml:"index"`
+	Name    string `yaml:"name"`
+	Literal string `yaml:"literal"`
 }
 
 // Overrides is the decoded form of exp/internal/gen/overrides/<pkg>.yaml.
 type Overrides struct {
-	Package     string                  `yaml:"package"`
-	Doc         string                  `yaml:"doc"`
-	Include     []string                `yaml:"include"`
-	Bindings    []string                `yaml:"bindings"`
-	Rename      map[string]string       `yaml:"rename"`
-	Types       map[string]string       `yaml:"types"`
-	Overloads   map[string]OverloadRule `yaml:"overloads"`
-	Handwritten []string                `yaml:"handwritten"`
-	Exclude     []string                `yaml:"exclude"`
+	Package     string                     `yaml:"package"`
+	Doc         string                     `yaml:"doc"`
+	Include     []string                   `yaml:"include"`
+	Bindings    []string                   `yaml:"bindings"`
+	Rename      map[string]string          `yaml:"rename"`
+	Types       map[string]string          `yaml:"types"`
+	Overloads   map[string][]OverloadEntry `yaml:"overloads"`
+	Handwritten []string                   `yaml:"handwritten"`
+	Exclude     []string                   `yaml:"exclude"`
 
 	// Path is the source file this was loaded from, for error messages.
 	Path string `yaml:"-"`
@@ -133,12 +140,25 @@ func (o *Overrides) Validate(doc *ir.IR) error {
 			return err
 		}
 	}
-	for k, rule := range o.Overloads {
+	for k, entries := range o.Overloads {
 		if err := checkDeclMember(k); err != nil {
 			return err
 		}
-		if rule.By == "" || len(rule.Names) == 0 {
-			return fmt.Errorf("%s: overloads: %q must set by and names", o.Path, k)
+		if len(entries) == 0 {
+			return fmt.Errorf("%s: overloads: %q must list at least one entry", o.Path, k)
+		}
+		seen := map[int]bool{}
+		for _, e := range entries {
+			if e.Name == "" {
+				return fmt.Errorf("%s: overloads: %q: entry at index %d must set name", o.Path, k, e.Index)
+			}
+			if e.Index < 0 {
+				return fmt.Errorf("%s: overloads: %q: index must be >= 0, got %d", o.Path, k, e.Index)
+			}
+			if seen[e.Index] {
+				return fmt.Errorf("%s: overloads: %q: index %d listed more than once", o.Path, k, e.Index)
+			}
+			seen[e.Index] = true
 		}
 	}
 	for _, k := range o.Handwritten {
@@ -165,8 +185,9 @@ func indexDecls(doc *ir.IR) map[string]*ir.Decl {
 
 // declHasMember reports whether d has a property or method named name,
 // including one contributed by a resolvable extends/intersection
-// composition (see resolveDataMembers) rather than only d's own direct
-// members.
+// composition (see resolveDataMembers) or, for a handle-shaped declaration,
+// by a resolvable handle-extends ancestor (see resolveHandleMembers) —
+// rather than only d's own direct members.
 func declHasMember(declByName map[string]*ir.Decl, d *ir.Decl, name string) bool {
 	if members, ok := resolveDataMembers(declByName, d); ok {
 		for _, m := range members {
@@ -176,7 +197,7 @@ func declHasMember(declByName map[string]*ir.Decl, d *ir.Decl, name string) bool
 		}
 		return false
 	}
-	for _, m := range d.Members {
+	for _, m := range resolveHandleMembers(declByName, d, 0) {
 		if m.Name == name {
 			return true
 		}

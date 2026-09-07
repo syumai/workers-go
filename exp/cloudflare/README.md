@@ -208,6 +208,7 @@ exclude:                           # drop a specific member of an included
 | `ref Request` / `Response` | `js.Value` | direct (left as a raw escape hatch for hand-written L2 packages) |
 | `ref` to a type in this package's `include:` | that type's Go type | `fromJS`/`toJS` for a data type, `FromJS`/`JSValue()` for a handle type |
 | `ref` to a type *not* in `include:` | `js.Value` | direct, with a warning |
+| an optional (`field?:`) or nullable (`field: X \| null`/`undefined`) data-type struct field whose type is itself a nested `include:`-ed data type | `*X`, omitted from `toJS()` when nil and only allocated/decoded in `fromJS` when present | pointer-wrap |
 | a single `literal` | its base type (`string`, ...) | direct |
 | `union` of all string literals | `string` (a named enum type + `const`s, if it's a top-level alias) | direct |
 | `union` of `T \| null \| undefined` | `T` (treated as optional) | direct |

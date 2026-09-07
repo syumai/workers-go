@@ -155,7 +155,14 @@ func (p *Package) genHandle(sb *strings.Builder, d *ir.Decl) error {
 		p.genBindingFunc(sb, d, name)
 	}
 
-	for _, g := range groupMembers(d.Members) {
+	prevDeclTP := p.curDeclTypeParams
+	p.curDeclTypeParams = d.TypeParams
+	defer func() { p.curDeclTypeParams = prevDeclTP }()
+
+	// resolveHandleMembers pulls in getters/methods a handle inherits from
+	// an extends ancestor that's also handle-shaped (e.g. R2ObjectBody
+	// extends R2Object); see tmp/06-codegen-spec.md 2.1 item 4.
+	for _, g := range groupMembers(resolveHandleMembers(p.declByName, d, 0)) {
 		if p.isHandwritten(d.Name, g.Name) || p.isExcluded(d.Name, g.Name) {
 			continue
 		}
@@ -202,76 +209,91 @@ func (p *Package) genGetter(sb *strings.Builder, d *ir.Decl, structName string, 
 	fmt.Fprintf(sb, "func (x *%s) %s() %s {\n", structName, goName, conv.GoType)
 	src := fmt.Sprintf("x.v.Get(%q)", m.Name)
 	sb.WriteString("\tvar ret " + conv.GoType + "\n")
-	if m.Optional {
+	// A getter's enclosing function returns a single value, so pass "" as
+	// FromJS's failReturn: there's nowhere to propagate a decode error to
+	// (see the KindData/KindAliasData case in declRefConv).
+	if m.Optional || isNullableType(t) {
 		sb.WriteString("\tif s := " + src + "; !s.IsUndefined() && !s.IsNull() {\n")
-		sb.WriteString(indentBlock(conv.FromJS("ret", "s", conv.ZeroExpr), 2))
+		sb.WriteString(indentBlock(conv.FromJS("ret", "s", ""), 2))
 		sb.WriteString("\t}\n")
 	} else {
-		sb.WriteString(indentBlock(conv.FromJS("ret", src, conv.ZeroExpr), 1))
+		sb.WriteString(indentBlock(conv.FromJS("ret", src, ""), 1))
 	}
 	sb.WriteString("\treturn ret\n}\n\n")
 	return nil
 }
 
+// genMethodGroup emits Go methods for one same-named group of members. A
+// non-overloaded member (the common case) is emitted as-is. An overloaded
+// one (len(members) > 1) requires an "overloads:" entry per
+// tmp/06-codegen-spec.md 2.1 item 1: each configured entry names one
+// overload (by its 0-based position within this group) to generate under a
+// distinct Go name, optionally dropping a literal-typed discriminant
+// parameter (e.g. `type: "text"`) from the Go signature and passing it as a
+// constant instead. Overloads with no matching entry are skipped, with a
+// warning.
 func (p *Package) genMethodGroup(sb *strings.Builder, d *ir.Decl, structName string, members []ir.Member) error {
 	if len(members) == 1 {
 		goName := p.memberName(d.Name, members[0].Name)
-		return p.genMethod(sb, d, structName, members[0], goName)
+		return p.genMethod(sb, d, structName, members[0], goName, -1, "")
 	}
-	rule, ok := p.Ov.Overloads[memberKey(d.Name, members[0].Name)]
+	key := memberKey(d.Name, members[0].Name)
+	entries, ok := p.Ov.Overloads[key]
 	if !ok {
-		return fmt.Errorf("%s has %d overloads but no overloads rule is configured in overrides", memberKey(d.Name, members[0].Name), len(members))
+		return fmt.Errorf("%s has %d overloads but no overloads rule is configured in overrides", key, len(members))
 	}
-	idx, err := parseLiteralIndex(rule.By)
-	if err != nil {
-		return err
-	}
-	for _, m := range members {
-		if idx >= len(m.Params) {
-			return fmt.Errorf("%s: overload discriminant param index %d out of range", memberKey(d.Name, m.Name), idx)
+	handled := make([]bool, len(members))
+	for _, e := range entries {
+		if e.Index < 0 || e.Index >= len(members) {
+			return fmt.Errorf("%s: overloads: index %d out of range (method has %d overloads)", key, e.Index, len(members))
 		}
-		lit, ok := literalUnionKey(m.Params[idx].Type)
-		if !ok {
-			return fmt.Errorf("%s: param %d is not a literal type, cannot discriminate overload", memberKey(d.Name, m.Name), idx)
+		if handled[e.Index] {
+			return fmt.Errorf("%s: overloads: index %d configured more than once", key, e.Index)
 		}
-		goName, ok := rule.Names[lit]
-		if !ok {
-			return fmt.Errorf("%s: no overload name configured for variant %q", memberKey(d.Name, m.Name), lit)
+		handled[e.Index] = true
+		m := members[e.Index]
+		dropIdx, dropExpr := -1, ""
+		if e.Literal != "" {
+			found := false
+			for pi, prm := range m.Params {
+				if prm.Type != nil && prm.Type.IsStringLiteral() && prm.Type.StringValue() == e.Literal {
+					dropIdx, dropExpr, found = pi, fmt.Sprintf("%q", e.Literal), true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("%s: overloads: index %d has no parameter of literal type %q (has the upstream overload order changed?)", key, e.Index, e.Literal)
+			}
 		}
-		if err := p.genMethod(sb, d, structName, m, exportedName(goName)); err != nil {
+		if err := p.genMethod(sb, d, structName, m, exportedName(e.Name), dropIdx, dropExpr); err != nil {
 			return err
+		}
+	}
+	for i, m := range members {
+		if !handled[i] {
+			p.warnf("%s: skipping overload %d (%d params) with no overloads: entry", key, i, len(m.Params))
 		}
 	}
 	return nil
 }
 
-func parseLiteralIndex(by string) (int, error) {
-	const prefix = "literal:"
-	if !strings.HasPrefix(by, prefix) {
-		return 0, fmt.Errorf("unsupported overload discriminant %q (expected %q)", by, prefix+"<index>")
-	}
-	var idx int
-	if _, err := fmt.Sscanf(strings.TrimPrefix(by, prefix), "%d", &idx); err != nil {
-		return 0, fmt.Errorf("invalid overload discriminant %q: %w", by, err)
-	}
-	return idx, nil
-}
+// genMethod emits one Go method for member m. If dropIdx >= 0, m.Params[dropIdx]
+// (a literal-typed discriminant parameter from an overload split; see
+// genMethodGroup) is omitted from the Go signature and dropExpr — a Go
+// constant expression — is passed in its place at the call site.
+func (p *Package) genMethod(sb *strings.Builder, d *ir.Decl, structName string, m ir.Member, goName string, dropIdx int, dropExpr string) error {
+	prevMethodTP := p.curMethodTypeParams
+	p.curMethodTypeParams = m.TypeParams
+	defer func() { p.curMethodTypeParams = prevMethodTP }()
 
-func literalUnionKey(t *ir.Type) (string, bool) {
-	if t == nil {
-		return "", false
-	}
-	if t.IsStringLiteral() {
-		return t.StringValue(), true
-	}
-	return "", false
-}
-
-func (p *Package) genMethod(sb *strings.Builder, d *ir.Decl, structName string, m ir.Member, goName string) error {
 	var params []string
 	var argExprs []string
 	var argBlocks [][]string
 	for i, prm := range m.Params {
+		if i == dropIdx {
+			argExprs = append(argExprs, dropExpr)
+			continue
+		}
 		pname := goParamName(prm.Name)
 		override := p.typeOverride(d.Name, m.Name, "params."+prm.Name)
 		conv, err := p.convFor(prm.Type, override)
@@ -337,9 +359,20 @@ func (p *Package) genMethod(sb *strings.Builder, d *ir.Decl, structName string, 
 	}
 
 	retOverride := p.typeOverride(d.Name, m.Name, "returns")
-	conv, err := p.convFor(innerType, retOverride)
+	// tmp/06-codegen-spec.md 2.1 item 3: Promise<T | null/undefined> (T a
+	// prim, handle, or data type) becomes (*T, error) rather than silently
+	// collapsing null to T's zero value. An explicit types: override always
+	// wins (the author has already chosen the exact Go type/behavior).
+	nonNullType, nullable := innerType, false
+	if retOverride == "" {
+		nonNullType, nullable = splitNullable(innerType)
+	}
+	conv, err := p.convFor(nonNullType, retOverride)
 	if err != nil {
 		return err
+	}
+	if nullable {
+		conv = p.nullableReturnConv(conv)
 	}
 	fmt.Fprintf(sb, "func (x *%s) %s(%s) (%s, error) {\n", structName, goName, strings.Join(params, ", "), conv.GoType)
 	for _, b := range argBlocks {
@@ -380,6 +413,10 @@ func (p *Package) dataMembers(d *ir.Decl) []ir.Member {
 }
 
 func (p *Package) genData(sb *strings.Builder, d *ir.Decl) error {
+	prevDeclTP := p.curDeclTypeParams
+	p.curDeclTypeParams = d.TypeParams
+	defer func() { p.curDeclTypeParams = prevDeclTP }()
+
 	name := p.declGoName(d)
 	members := p.dataMembers(d)
 
@@ -393,8 +430,7 @@ func (p *Package) genData(sb *strings.Builder, d *ir.Decl) error {
 			continue
 		}
 		fieldName := p.memberName(d.Name, m.Name)
-		override := p.typeOverride(d.Name, m.Name, "")
-		conv, err := p.convFor(m.Type, override)
+		conv, err := p.fieldConv(d, m)
 		if err != nil {
 			return err
 		}
@@ -431,18 +467,23 @@ func (p *Package) genDataFromJS(sb *strings.Builder, d *ir.Decl, structName stri
 			continue
 		}
 		fieldName := p.memberName(d.Name, m.Name)
-		override := p.typeOverride(d.Name, m.Name, "")
-		conv, err := p.convFor(m.Type, override)
+		conv, err := p.fieldConv(d, m)
 		if err != nil {
 			return err
 		}
 		jsGet := fmt.Sprintf("v.Get(%q)", m.Name)
 		var block []string
-		if m.Optional {
+		switch {
+		case conv.SelfGuarded:
+			// FromJS already guards null/undefined internally
+			// (pointerWrap/nilGuardWrap, from fieldConv's nested-data-type
+			// pointer treatment); an outer guard would just be redundant.
+			block = conv.FromJS("out."+fieldName, jsGet, failReturn)
+		case m.Optional || isNullableType(m.Type):
 			block = append(block, "if s := "+jsGet+"; !s.IsUndefined() && !s.IsNull() {")
 			block = append(block, indentAll(conv.FromJS("out."+fieldName, "s", failReturn))...)
 			block = append(block, "}")
-		} else {
+		default:
 			block = conv.FromJS("out."+fieldName, jsGet, failReturn)
 		}
 		sb.WriteString("\t{\n")
@@ -464,8 +505,7 @@ func (p *Package) genDataToJS(sb *strings.Builder, d *ir.Decl, structName string
 			continue
 		}
 		fieldName := p.memberName(d.Name, m.Name)
-		override := p.typeOverride(d.Name, m.Name, "")
-		conv, err := p.convFor(m.Type, override)
+		conv, err := p.fieldConv(d, m)
 		if err != nil {
 			return err
 		}

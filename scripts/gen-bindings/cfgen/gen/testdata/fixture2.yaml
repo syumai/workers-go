@@ -1,0 +1,31 @@
+package: stores
+doc: |
+  Package stores is a second synthetic fixture package, covering the cfgen
+  extensions from tmp/06-codegen-spec.md section 2.1: overload index/literal
+  splitting with a skipped variant, typeParam defaults (decl- and
+  method-level), nullable Promise returns (prim/handle/data), handle-extends
+  flattening, union-of-object-literals data merging (both as a top-level
+  alias and as an intersection operand), and Iterable<T> params.
+include:
+  - Store
+  - Parent
+  - Child
+  - Box
+  - Config
+  - Result
+  - Bundle
+types:
+  # NotInIR makes Config.altBox an otherwise-unresolvable union; naming an
+  # included data declaration here should still trigger the nested-data
+  # pointer rule, same as if the field's own IR type were a plain ref.
+  Config.altBox: Box
+overloads:
+  Store.get:
+    - { index: 1, name: GetText, literal: text }
+    - { index: 2, name: GetEncoded, literal: encoded }
+rename:
+  # Child.name is only reachable via handle-extends flattening from Parent
+  # (Child declares no "name" member of its own); this exercises
+  # declHasMember seeing inherited handle members, not just d.Members.
+  Child.name: DisplayName
+
