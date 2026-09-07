@@ -2,7 +2,6 @@ package cron
 
 import (
 	"context"
-	"fmt"
 	"syscall/js"
 
 	"github.com/syumai/workers-go"
@@ -26,28 +25,9 @@ func runScheduler(eventObj js.Value) error {
 }
 
 func init() {
-	runSchedulerCallback := js.FuncOf(func(_ js.Value, args []js.Value) any {
-		if len(args) != 1 {
-			panic(fmt.Errorf("invalid number of arguments given to runScheduler: %d", len(args)))
-		}
-		eventObj := args[0]
-		var cb js.Func
-		cb = js.FuncOf(func(_ js.Value, pArgs []js.Value) any {
-			defer cb.Release()
-			resolve := pArgs[0]
-			go func() {
-				err := runScheduler(eventObj)
-				if err != nil {
-					panic(err)
-				}
-				resolve.Invoke(js.Undefined())
-			}()
-			return js.Undefined()
-		})
-
-		return jsutil.NewPromise(cb)
+	jsutil.RegisterAsyncHandler("runScheduler", 1, func(args []js.Value) (js.Value, error) {
+		return js.Undefined(), runScheduler(args[0])
 	})
-	jsutil.Binding.Set("runScheduler", runSchedulerCallback)
 }
 
 // ScheduleTask sets the Task to be executed

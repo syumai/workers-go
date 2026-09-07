@@ -4,6 +4,8 @@ import (
 	"io"
 	"syscall/js"
 
+	kvjs "github.com/syumai/workers-go/exp/cloudflare/kv"
+
 	"github.com/syumai/workers-go/internal/jsutil"
 )
 
@@ -15,29 +17,20 @@ type PutOptions struct {
 	// Metadata // TODO: implement
 }
 
-func (opts *PutOptions) toJS() js.Value {
+func (opts *PutOptions) toKVJS() kvjs.KVNamespacePutOptions {
 	if opts == nil {
-		return js.Undefined()
+		return kvjs.KVNamespacePutOptions{}
 	}
-	obj := jsutil.NewObject()
-	if opts.Expiration != 0 {
-		obj.Set("expiration", opts.Expiration)
+	return kvjs.KVNamespacePutOptions{
+		Expiration:    opts.Expiration,
+		ExpirationTTL: opts.ExpirationTTL,
 	}
-	if opts.ExpirationTTL != 0 {
-		obj.Set("expirationTtl", opts.ExpirationTTL)
-	}
-	return obj
 }
 
 // PutString puts string value into KV with key.
 //   - if a network error happens, returns error.
 func (ns *Namespace) PutString(key string, value string, opts *PutOptions) error {
-	p := ns.instance.Call("put", key, value, opts.toJS())
-	_, err := jsutil.AwaitPromise(p)
-	if err != nil {
-		return err
-	}
-	return nil
+	return ns.instance.Put(key, js.ValueOf(value), opts.toKVJS())
 }
 
 // PutReader puts stream value into KV with key.
@@ -49,12 +42,6 @@ func (ns *Namespace) PutReader(key string, value io.Reader, opts *PutOptions) er
 	if err != nil {
 		return err
 	}
-	ua := jsutil.NewUint8Array(len(b))
-	js.CopyBytesToJS(ua, b)
-	p := ns.instance.Call("put", key, ua.Get("buffer"), opts.toJS())
-	_, err = jsutil.AwaitPromise(p)
-	if err != nil {
-		return err
-	}
-	return nil
+	ua := jsutil.BytesToJS(b)
+	return ns.instance.Put(key, ua.Get("buffer"), opts.toKVJS())
 }

@@ -4,16 +4,14 @@ import (
 	"syscall/js"
 
 	"github.com/syumai/workers-go/cloudflare/internal/cfruntimecontext"
+	"github.com/syumai/workers-go/internal/jsutil"
 )
 
 // Getenv gets a value of an environment variable.
 //   - https://developers.cloudflare.com/workers/platform/environment-variables/
 //   - This function panics when a runtime context is not found.
 func Getenv(name string) string {
-	if val := cfruntimecontext.MustGetRuntimeContextEnv().Get(name); !val.IsUndefined() {
-		return val.String()
-	}
-	return ""
+	return jsutil.MaybeString(cfruntimecontext.MustGetRuntimeContextEnv().Get(name))
 }
 
 // GetBinding gets a value of an environment binding.

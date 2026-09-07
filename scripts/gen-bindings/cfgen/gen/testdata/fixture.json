@@ -1,0 +1,231 @@
+{
+  "source": {
+    "package": "@cloudflare/workers-types",
+    "version": "0.0.0-fixture",
+    "entry": "index.d.ts"
+  },
+  "decls": [
+    {
+      "kind": "interface",
+      "name": "Widget",
+      "module": "",
+      "doc": "Widget is a handle type.",
+      "typeParams": [],
+      "extends": [],
+      "members": [
+        {
+          "kind": "property",
+          "name": "id",
+          "doc": "",
+          "type": { "k": "prim", "name": "string" },
+          "optional": false,
+          "readonly": true
+        },
+        {
+          "kind": "method",
+          "name": "get",
+          "doc": "get fetches a WidgetInfo by key.",
+          "params": [
+            { "name": "key", "type": { "k": "prim", "name": "string" }, "optional": false, "rest": false }
+          ],
+          "returns": { "k": "ref", "name": "Promise", "args": [ { "k": "ref", "name": "WidgetInfo", "args": [] } ] },
+          "typeParams": []
+        },
+        {
+          "kind": "method",
+          "name": "counters",
+          "doc": "counters returns a map of named counters.",
+          "params": [],
+          "returns": { "k": "ref", "name": "Record", "args": [ { "k": "prim", "name": "string" }, { "k": "prim", "name": "number" } ] },
+          "typeParams": []
+        },
+        {
+          "kind": "method",
+          "name": "getMany",
+          "doc": "getMany fetches several WidgetInfo by key; its array parameter needs a multi-statement JS conversion.",
+          "params": [
+            { "name": "keys", "type": { "k": "array", "elem": { "k": "prim", "name": "string" } }, "optional": false, "rest": false }
+          ],
+          "returns": { "k": "ref", "name": "Promise", "args": [ { "k": "array", "elem": { "k": "ref", "name": "WidgetInfo", "args": [] } } ] },
+          "typeParams": []
+        }
+      ]
+    },
+    {
+      "kind": "interface",
+      "name": "WidgetInfo",
+      "module": "",
+      "doc": "WidgetInfo is a data type.",
+      "typeParams": [],
+      "extends": [],
+      "members": [
+        {
+          "kind": "property",
+          "name": "widget_name",
+          "doc": "the widget's display name",
+          "type": { "k": "prim", "name": "string" },
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "kind": "property",
+          "name": "cacheTtl",
+          "doc": "",
+          "type": { "k": "prim", "name": "number" },
+          "optional": true,
+          "readonly": false
+        },
+        {
+          "kind": "property",
+          "name": "tags",
+          "doc": "",
+          "type": { "k": "array", "elem": { "k": "prim", "name": "string" } },
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "kind": "property",
+          "name": "status",
+          "doc": "",
+          "type": { "k": "ref", "name": "WidgetStatus", "args": [] },
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "kind": "property",
+          "name": "secret",
+          "doc": "raw escape hatch, not translated",
+          "type": { "k": "prim", "name": "object" },
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "kind": "property",
+          "name": "internalNote",
+          "doc": "dropped via exclude",
+          "type": { "k": "prim", "name": "string" },
+          "optional": false,
+          "readonly": false
+        }
+      ]
+    },
+    {
+      "kind": "alias",
+      "name": "WidgetStatus",
+      "module": "",
+      "doc": "WidgetStatus is a string-literal union alias.",
+      "typeParams": [],
+      "type": {
+        "k": "union",
+        "types": [
+          { "k": "literal", "value": "active" },
+          { "k": "literal", "value": "inactive" }
+        ]
+      }
+    },
+    {
+      "kind": "class",
+      "name": "WidgetFactory",
+      "module": "",
+      "doc": "WidgetFactory.create is handwritten.",
+      "typeParams": [],
+      "extends": [],
+      "members": [
+        {
+          "kind": "method",
+          "name": "create",
+          "doc": "",
+          "params": [],
+          "returns": { "k": "ref", "name": "Widget", "args": [] },
+          "typeParams": []
+        }
+      ]
+    },
+    {
+      "kind": "interface",
+      "name": "GeoBase",
+      "module": "",
+      "doc": "GeoBase is a plain data interface used as an extends target.",
+      "typeParams": [],
+      "extends": [],
+      "members": [
+        {
+          "kind": "property",
+          "name": "lat",
+          "doc": "",
+          "type": { "k": "prim", "name": "number" },
+          "optional": false,
+          "readonly": false
+        }
+      ]
+    },
+    {
+      "kind": "interface",
+      "name": "GeoExt",
+      "module": "",
+      "doc": "GeoExt extends GeoBase, exercising extends-flattening: it inherits lat from GeoBase but overrides it with its own (differently typed) lat, and adds lng.",
+      "typeParams": [],
+      "extends": [
+        { "k": "ref", "name": "GeoBase", "args": [] }
+      ],
+      "members": [
+        {
+          "kind": "property",
+          "name": "lat",
+          "doc": "",
+          "type": { "k": "prim", "name": "string" },
+          "optional": false,
+          "readonly": false
+        },
+        {
+          "kind": "property",
+          "name": "lng",
+          "doc": "",
+          "type": { "k": "prim", "name": "number" },
+          "optional": false,
+          "readonly": false
+        }
+      ]
+    },
+    {
+      "kind": "alias",
+      "name": "GeoCombined",
+      "module": "",
+      "doc": "GeoCombined is an intersection of a ref (GeoExt) and an inline object literal, exercising intersection-flattening for alias declarations.",
+      "typeParams": [],
+      "type": {
+        "k": "intersection",
+        "types": [
+          { "k": "ref", "name": "GeoExt", "args": [] },
+          {
+            "k": "object",
+            "members": [
+              {
+                "kind": "property",
+                "name": "label",
+                "doc": "",
+                "type": { "k": "prim", "name": "string" },
+                "optional": false,
+                "readonly": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "alias",
+      "name": "GeoUnresolvable",
+      "module": "",
+      "doc": "GeoUnresolvable intersects a resolvable ref with one that isn't in the IR at all, exercising the all-or-nothing fallback for alias intersections.",
+      "typeParams": [],
+      "type": {
+        "k": "intersection",
+        "types": [
+          { "k": "ref", "name": "GeoExt", "args": [] },
+          { "k": "ref", "name": "NotInTheIR", "args": [] }
+        ]
+      }
+    }
+  ]
+}

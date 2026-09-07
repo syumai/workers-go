@@ -3,7 +3,8 @@ package r2
 import (
 	"fmt"
 	"io"
-	"syscall/js"
+
+	r2js "github.com/syumai/workers-go/exp/cloudflare/r2"
 
 	"github.com/syumai/workers-go/cloudflare/internal/cfruntimecontext"
 	"github.com/syumai/workers-go/internal/jsutil"
@@ -13,7 +14,7 @@ import (
 //   - https://developers.cloudflare.com/r2/runtime-apis/#bucket-method-definitions
 //   - https://github.com/cloudflare/workers-types/blob/3012f263fb1239825e5f0061b267c8650d01b717/index.d.ts#L1006
 type Bucket struct {
-	instance js.Value
+	instance *r2js.R2Bucket
 }
 
 // NewBucket returns Bucket for given variable name.
@@ -26,7 +27,7 @@ func NewBucket(varName string) (*Bucket, error) {
 	if inst.IsUndefined() {
 		return nil, fmt.Errorf("%s is undefined", varName)
 	}
-	return &Bucket{instance: inst}, nil
+	return &Bucket{instance: r2js.R2BucketFromJS(inst)}, nil
 }
 
 // Head returns the result of `head` call to Bucket.
@@ -34,30 +35,28 @@ func NewBucket(varName string) (*Bucket, error) {
 //   - if the object for given key doesn't exist, returns nil.
 //   - if a network error happens, returns error.
 func (r *Bucket) Head(key string) (*Object, error) {
-	p := r.instance.Call("head", key)
-	v, err := jsutil.AwaitPromise(p)
+	obj, err := r.instance.Head(key)
 	if err != nil {
 		return nil, err
 	}
-	if v.IsNull() {
+	if obj == nil {
 		return nil, nil
 	}
-	return toObject(v)
+	return toObject(obj, nil), nil
 }
 
 // Get returns the result of `get` call to Bucket.
 //   - if the object for given key doesn't exist, returns nil.
 //   - if a network error happens, returns error.
 func (r *Bucket) Get(key string) (*Object, error) {
-	p := r.instance.Call("get", key)
-	v, err := jsutil.AwaitPromise(p)
+	body, err := r.instance.Get(key, r2js.R2GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	if v.IsNull() {
+	if body == nil {
 		return nil, nil
 	}
-	return toObject(v)
+	return toObject(body, body.Body()), nil
 }
 
 // PutOptions represents Cloudflare R2 put options.
@@ -68,28 +67,19 @@ type PutOptions struct {
 	MD5            string
 }
 
-func (opts *PutOptions) toJS() js.Value {
+func (opts *PutOptions) toR2JS() r2js.R2PutOptions {
 	if opts == nil {
-		return js.Undefined()
+		return r2js.R2PutOptions{}
 	}
-	obj := jsutil.NewObject()
+	out := r2js.R2PutOptions{
+		CustomMetadata: opts.CustomMetadata,
+		MD5:            opts.MD5,
+	}
 	if opts.HTTPMetadata != (HTTPMetadata{}) {
-		obj.Set("httpMetadata", opts.HTTPMetadata.toJS())
+		meta := r2js.R2HTTPMetadata(opts.HTTPMetadata)
+		out.HTTPMetadata = &meta
 	}
-	if opts.CustomMetadata != nil {
-		// convert map[string]string to map[string]any.
-		// This makes the map convertible to JS.
-		// see: https://pkg.go.dev/syscall/js#ValueOf
-		customMeta := make(map[string]any, len(opts.CustomMetadata))
-		for k, v := range opts.CustomMetadata {
-			customMeta[k] = v
-		}
-		obj.Set("customMetadata", customMeta)
-	}
-	if opts.MD5 != "" {
-		obj.Set("md5", opts.MD5)
-	}
-	return obj
+	return out
 }
 
 // Put returns the result of `put` call to Bucket.
@@ -103,33 +93,26 @@ func (r *Bucket) Put(key string, value io.ReadCloser, opts *PutOptions) (*Object
 		return nil, err
 	}
 	defer value.Close()
-	ua := jsutil.NewUint8Array(len(b))
-	js.CopyBytesToJS(ua, b)
-	p := r.instance.Call("put", key, ua.Get("buffer"), opts.toJS())
-	v, err := jsutil.AwaitPromise(p)
+	ua := jsutil.BytesToJS(b)
+	obj, err := r.instance.Put(key, ua.Get("buffer"), opts.toR2JS())
 	if err != nil {
 		return nil, err
 	}
-	return toObject(v)
+	return toObject(obj, nil), nil
 }
 
 // Delete returns the result of `delete` call to Bucket.
 //   - if a network error happens, returns error.
 func (r *Bucket) Delete(key string) error {
-	p := r.instance.Call("delete", key)
-	if _, err := jsutil.AwaitPromise(p); err != nil {
-		return err
-	}
-	return nil
+	return r.instance.Delete([]string{key})
 }
 
 // List returns the result of `list` call to Bucket.
 //   - if a network error happens, returns error.
 func (r *Bucket) List() (*Objects, error) {
-	p := r.instance.Call("list")
-	v, err := jsutil.AwaitPromise(p)
+	res, err := r.instance.List(r2js.R2ListOptions{})
 	if err != nil {
 		return nil, err
 	}
-	return toObjects(v)
+	return toObjects(res), nil
 }

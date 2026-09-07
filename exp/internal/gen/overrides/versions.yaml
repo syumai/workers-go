@@ -1,0 +1,13 @@
+package: versions
+doc: |
+  Package versions provides the "version_metadata" binding, exposing
+  metadata about the Worker Version using it.
+
+  WorkerVersionMetadata is a TypeScript object-literal alias (not an
+  interface), so it is generated as a data type: New resolves the binding
+  and decodes it directly, since there is no underlying JS handle object to
+  wrap.
+include:
+  - WorkerVersionMetadata
+bindings:
+  - WorkerVersionMetadata

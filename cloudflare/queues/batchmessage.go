@@ -3,7 +3,7 @@ package queues
 import (
 	"syscall/js"
 
-	"github.com/syumai/workers-go/internal/jsutil"
+	queuesjs "github.com/syumai/workers-go/exp/cloudflare/queues"
 )
 
 // MessageSendRequest is a wrapper type used for sending message batches.
@@ -44,9 +44,13 @@ func newMessageSendRequest(body js.Value, contentType contentType, opts ...SendO
 	return &MessageSendRequest{body: body, options: &options}
 }
 
-func (m *MessageSendRequest) toJS() js.Value {
-	obj := jsutil.NewObject()
-	obj.Set("body", m.body)
-	obj.Set("options", m.options.toJS())
-	return obj
+// toQueuesJS converts m to the generated queues.MessageSendRequest shape
+// (body/contentType/delaySeconds as flat fields, per the real
+// MessageSendRequest wire format) used by Queue.SendBatch.
+func (m *MessageSendRequest) toQueuesJS() queuesjs.MessageSendRequest {
+	return queuesjs.MessageSendRequest{
+		Body:         m.body,
+		ContentType:  queuesjs.QueueContentType(m.options.ContentType),
+		DelaySeconds: m.options.DelaySeconds,
+	}
 }

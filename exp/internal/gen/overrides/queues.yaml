@@ -1,0 +1,29 @@
+package: queues
+doc: |
+  Package queues provides the Queue producer binding
+  (https://developers.cloudflare.com/queues/). The consumer side (Message,
+  MessageBatch, the consumer handler registration) is hand-written under
+  cloudflare/queues and isn't part of this generated package.
+include:
+  - Queue
+  - MessageSendRequest
+  - QueueSendOptions
+  - QueueSendBatchOptions
+  - QueueContentType
+  - QueueSendResponse
+  - QueueSendBatchResponse
+  - QueueSendMetadata
+  - QueueSendBatchMetadata
+  - QueueSendMetrics
+  - QueueSendBatchMetrics
+  - QueueMetrics
+bindings:
+  - Queue
+types:
+  # Body's decl-level default is "unknown" on both Queue and
+  # MessageSendRequest, which already maps to js.Value on its own (item 2);
+  # no override needed for Queue.send's message param or
+  # MessageSendRequest.body.
+  MessageSendRequest.delaySeconds: "int"
+  QueueSendOptions.delaySeconds: "int"
+  QueueSendBatchOptions.delaySeconds: "int"

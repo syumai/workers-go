@@ -65,12 +65,7 @@ func convertRowColumnValueToAny(v js.Value) (driver.Value, error) {
 	case js.TypeObject:
 		// handle BLOB type (ArrayBuffer).
 		src := jsutil.Uint8ArrayClass.New(v)
-		dst := make([]byte, src.Length())
-		n := js.CopyBytesToGo(dst, src)
-		if n != len(dst) {
-			return nil, errors.New("incomplete copy from Uint8Array")
-		}
-		return dst[:n], nil
+		return jsutil.BytesFromJS(src), nil
 	}
 	return nil, errors.New("d1: unexpected row column value type")
 }

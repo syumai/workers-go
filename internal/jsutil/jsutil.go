@@ -122,6 +122,35 @@ func MaybeDate(v js.Value) (time.Time, error) {
 	return DateToTime(v)
 }
 
+// MaybeBool returns bool value of given JavaScript value or returns false if the value is undefined.
+func MaybeBool(v js.Value) bool {
+	if v.IsUndefined() {
+		return false
+	}
+	return v.Bool()
+}
+
+// MaybeFloat returns float64 value of given JavaScript value or returns 0 if the value is undefined.
+func MaybeFloat(v js.Value) float64 {
+	if v.IsUndefined() {
+		return 0
+	}
+	return v.Float()
+}
+
+// MaybeStringSlice returns []string value of given JavaScript Array value or returns nil if the value is undefined.
+func MaybeStringSlice(v js.Value) []string {
+	if v.IsUndefined() {
+		return nil
+	}
+	length := v.Length()
+	result := make([]string, length)
+	for i := 0; i < length; i++ {
+		result[i] = v.Index(i).String()
+	}
+	return result
+}
+
 // DateToTime converts JavaScript side's Data object into time.Time.
 func DateToTime(v js.Value) (time.Time, error) {
 	milli := v.Call("getTime").Float()
@@ -131,4 +160,18 @@ func DateToTime(v js.Value) (time.Time, error) {
 // TimeToDate converts Go side's time.Time into Date object.
 func TimeToDate(t time.Time) js.Value {
 	return DateClass.New(t.UnixMilli())
+}
+
+// BytesToJS copies a Go byte slice into a new JavaScript Uint8Array.
+func BytesToJS(b []byte) js.Value {
+	ua := NewUint8Array(len(b))
+	js.CopyBytesToJS(ua, b)
+	return ua
+}
+
+// BytesFromJS copies the contents of a JavaScript typed array (e.g. Uint8Array) into a new Go byte slice.
+func BytesFromJS(v js.Value) []byte {
+	b := make([]byte, v.Get("byteLength").Int())
+	js.CopyBytesToGo(b, v)
+	return b
 }

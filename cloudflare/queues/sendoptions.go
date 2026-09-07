@@ -1,10 +1,9 @@
 package queues
 
 import (
-	"syscall/js"
 	"time"
 
-	"github.com/syumai/workers-go/internal/jsutil"
+	queuesjs "github.com/syumai/workers-go/exp/cloudflare/queues"
 )
 
 type sendOptions struct {
@@ -17,15 +16,11 @@ type sendOptions struct {
 	DelaySeconds int
 }
 
-func (o *sendOptions) toJS() js.Value {
-	obj := jsutil.NewObject()
-	obj.Set("contentType", string(o.ContentType))
-
-	if o.DelaySeconds != 0 {
-		obj.Set("delaySeconds", o.DelaySeconds)
+func (o *sendOptions) toQueuesJS() queuesjs.QueueSendOptions {
+	return queuesjs.QueueSendOptions{
+		ContentType:  queuesjs.QueueContentType(o.ContentType),
+		DelaySeconds: o.DelaySeconds,
 	}
-
-	return obj
 }
 
 type SendOption func(*sendOptions)

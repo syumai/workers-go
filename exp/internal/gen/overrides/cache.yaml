@@ -1,0 +1,18 @@
+package: cache
+doc: |
+  Package cache provides the Cache API binding
+  (https://developers.cloudflare.com/workers/runtime-apis/cache/).
+
+  request/response are left as js.Value, a raw escape hatch: the L2 cache
+  package (and anyone using this package directly) builds these from
+  *http.Request/*http.Response via the same conversions jshttp already
+  uses elsewhere. Caches() (in the hand-written cache.go in this package)
+  is the entry point, wrapping the global caches CacheStorage.
+include:
+  - Cache
+  - CacheStorage
+  - CacheQueryOptions
+types:
+  Cache.delete.params.request: "js.Value"
+  Cache.match.params.request: "js.Value"
+  Cache.put.params.request: "js.Value"

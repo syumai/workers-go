@@ -1,0 +1,179 @@
+{
+  "source": {
+    "package": "@cloudflare/workers-types",
+    "version": "0.0.0-fixture2",
+    "entry": "index.d.ts"
+  },
+  "decls": [
+    {
+      "kind": "interface",
+      "name": "Store",
+      "module": "",
+      "doc": "Store exercises typeParam defaults (decl-level Item, method-level Encoding), overload splitting with a skipped variant, Iterable params, and nullable returns (prim, handle, data).",
+      "typeParams": [
+        { "name": "Item", "default": { "k": "prim", "name": "string" } }
+      ],
+      "extends": [],
+      "members": [
+        {
+          "kind": "method",
+          "name": "get",
+          "doc": "unconfigured overload 0, should be skipped with a warning",
+          "params": [
+            { "name": "key", "type": { "k": "typeParam", "name": "Item" }, "optional": false, "rest": false },
+            { "name": "kind", "type": { "k": "literal", "value": "raw" }, "optional": false, "rest": false }
+          ],
+          "returns": { "k": "ref", "name": "Promise", "args": [ { "k": "union", "types": [ { "k": "prim", "name": "string" }, { "k": "prim", "name": "null" } ] } ] },
+          "typeParams": []
+        },
+        {
+          "kind": "method",
+          "name": "get",
+          "doc": "overload 1, configured as GetText, dropping the literal \"text\" kind param",
+          "params": [
+            { "name": "key", "type": { "k": "typeParam", "name": "Item" }, "optional": false, "rest": false },
+            { "name": "kind", "type": { "k": "literal", "value": "text" }, "optional": false, "rest": false }
+          ],
+          "returns": { "k": "ref", "name": "Promise", "args": [ { "k": "union", "types": [ { "k": "prim", "name": "string" }, { "k": "prim", "name": "null" } ] } ] },
+          "typeParams": []
+        },
+        {
+          "kind": "method",
+          "name": "get",
+          "doc": "overload 2, configured as GetEncoded, exercising a method-level typeParam default (Encoding has no default -> js.Value) and dropping the literal \"encoded\" kind param",
+          "params": [
+            { "name": "key", "type": { "k": "typeParam", "name": "Item" }, "optional": false, "rest": false },
+            { "name": "kind", "type": { "k": "literal", "value": "encoded" }, "optional": false, "rest": false }
+          ],
+          "returns": { "k": "ref", "name": "Promise", "args": [ { "k": "union", "types": [ { "k": "typeParam", "name": "Encoding" }, { "k": "prim", "name": "null" } ] } ] },
+          "typeParams": [ { "name": "Encoding" } ]
+        },
+        {
+          "kind": "method",
+          "name": "find",
+          "doc": "nullable handle return: Promise<Parent | null> becomes (*Parent, error)",
+          "params": [
+            { "name": "id", "type": { "k": "prim", "name": "string" }, "optional": false, "rest": false }
+          ],
+          "returns": { "k": "ref", "name": "Promise", "args": [ { "k": "union", "types": [ { "k": "ref", "name": "Parent", "args": [] }, { "k": "prim", "name": "null" } ] } ] },
+          "typeParams": []
+        },
+        {
+          "kind": "method",
+          "name": "info",
+          "doc": "nullable data-type return: Promise<Box | undefined> becomes (*Box, error)",
+          "params": [
+            { "name": "id", "type": { "k": "prim", "name": "string" }, "optional": false, "rest": false }
+          ],
+          "returns": { "k": "ref", "name": "Promise", "args": [ { "k": "union", "types": [ { "k": "ref", "name": "Box", "args": [] }, { "k": "prim", "name": "undefined" } ] } ] },
+          "typeParams": []
+        },
+        {
+          "kind": "method",
+          "name": "sendMany",
+          "doc": "Iterable<T> is treated like Array<T>",
+          "params": [
+            { "name": "items", "type": { "k": "ref", "name": "Iterable", "args": [ { "k": "prim", "name": "string" } ] }, "optional": false, "rest": false }
+          ],
+          "returns": { "k": "ref", "name": "Promise", "args": [ { "k": "prim", "name": "void" } ] },
+          "typeParams": []
+        }
+      ]
+    },
+    {
+      "kind": "interface",
+      "name": "Parent",
+      "module": "",
+      "doc": "Parent is a handle extended by Child.",
+      "typeParams": [],
+      "extends": [],
+      "members": [
+        { "kind": "getter", "name": "name", "type": { "k": "prim", "name": "string" } }
+      ]
+    },
+    {
+      "kind": "interface",
+      "name": "Child",
+      "module": "",
+      "doc": "Child extends Parent, exercising handle-extends flattening: it inherits Name() from Parent and adds its own Extra().",
+      "typeParams": [],
+      "extends": [
+        { "k": "ref", "name": "Parent", "args": [] }
+      ],
+      "members": [
+        { "kind": "getter", "name": "extra", "type": { "k": "prim", "name": "string" } }
+      ]
+    },
+    {
+      "kind": "interface",
+      "name": "Box",
+      "module": "",
+      "doc": "Box is a plain data type, used as a nullable method return.",
+      "typeParams": [],
+      "extends": [],
+      "members": [
+        { "kind": "property", "name": "label", "doc": "", "type": { "k": "prim", "name": "string" }, "optional": false, "readonly": false }
+      ]
+    },
+    {
+      "kind": "interface",
+      "name": "Config",
+      "module": "",
+      "doc": "Config exercises the nested-data-type pointer rule (tmp/06-codegen-spec.md 1.3): req (required) stays a plain Box; opt (TS `?`) and nullable (`Box | null`) both become *Box, omitted/allocated only when present; owner (an optional handle-type ref) is unaffected, already *Parent.",
+      "typeParams": [],
+      "extends": [],
+      "members": [
+        { "kind": "property", "name": "req", "doc": "", "type": { "k": "ref", "name": "Box", "args": [] }, "optional": false, "readonly": false },
+        { "kind": "property", "name": "opt", "doc": "", "type": { "k": "ref", "name": "Box", "args": [] }, "optional": true, "readonly": false },
+        { "kind": "property", "name": "nullable", "doc": "", "type": { "k": "union", "types": [ { "k": "ref", "name": "Box", "args": [] }, { "k": "prim", "name": "null" } ] }, "optional": false, "readonly": false },
+        { "kind": "property", "name": "owner", "doc": "", "type": { "k": "ref", "name": "Parent", "args": [] }, "optional": true, "readonly": false },
+        { "kind": "property", "name": "altBox", "doc": "resolved via a types: override to Box (picking one branch of an otherwise-unresolvable union), still exercising the nested-data-type pointer rule", "type": { "k": "union", "types": [ { "k": "ref", "name": "Box", "args": [] }, { "k": "ref", "name": "NotInIR", "args": [] } ] }, "optional": true, "readonly": false }
+      ]
+    },
+    {
+      "kind": "alias",
+      "name": "Result",
+      "module": "",
+      "doc": "Result is a top-level alias union of two object literals, exercising union-data-merge: ok (a literal true/false discriminant in both branches) becomes a required bool; value/error (each present in only one branch) become optional.",
+      "typeParams": [],
+      "type": {
+        "k": "union",
+        "types": [
+          {
+            "k": "object",
+            "members": [
+              { "kind": "property", "name": "ok", "doc": "", "type": { "k": "literal", "value": true }, "optional": false, "readonly": false },
+              { "kind": "property", "name": "value", "doc": "", "type": { "k": "prim", "name": "string" }, "optional": false, "readonly": false }
+            ]
+          },
+          {
+            "k": "object",
+            "members": [
+              { "kind": "property", "name": "ok", "doc": "", "type": { "k": "literal", "value": false }, "optional": false, "readonly": false },
+              { "kind": "property", "name": "error", "doc": "", "type": { "k": "prim", "name": "string" }, "optional": false, "readonly": false }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "kind": "alias",
+      "name": "Bundle",
+      "module": "",
+      "doc": "Bundle intersects a plain object literal with a ref to Result (itself a union alias), exercising union-merge as an intersection operand (the R2Objects shape).",
+      "typeParams": [],
+      "type": {
+        "k": "intersection",
+        "types": [
+          {
+            "k": "object",
+            "members": [
+              { "kind": "property", "name": "tag", "doc": "", "type": { "k": "prim", "name": "string" }, "optional": false, "readonly": false }
+            ]
+          },
+          { "k": "ref", "name": "Result", "args": [] }
+        ]
+      }
+    }
+  ]
+}

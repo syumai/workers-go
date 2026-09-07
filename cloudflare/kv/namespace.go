@@ -2,7 +2,8 @@ package kv
 
 import (
 	"fmt"
-	"syscall/js"
+
+	kvjs "github.com/syumai/workers-go/exp/cloudflare/kv"
 
 	"github.com/syumai/workers-go/cloudflare/internal/cfruntimecontext"
 )
@@ -11,7 +12,7 @@ import (
 //   - https://developers.cloudflare.com/workers/runtime-apis/kv/
 //   - https://github.com/cloudflare/workers-types/blob/3012f263fb1239825e5f0061b267c8650d01b717/index.d.ts#L850
 type Namespace struct {
-	instance js.Value
+	instance *kvjs.KVNamespace
 }
 
 // NewNamespace returns Namespace for given variable name.
@@ -23,5 +24,5 @@ func NewNamespace(varName string) (*Namespace, error) {
 	if inst.IsUndefined() {
 		return nil, fmt.Errorf("%s is undefined", varName)
 	}
-	return &Namespace{instance: inst}, nil
+	return &Namespace{instance: kvjs.KVNamespaceFromJS(inst)}, nil
 }

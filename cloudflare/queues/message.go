@@ -71,7 +71,5 @@ func (m *Message) BytesBody() ([]byte, error) {
 		!(m.Body.InstanceOf(jsutil.Uint8ArrayClass) || m.Body.InstanceOf(jsutil.Uint8ClampedArrayClass)) {
 		return nil, fmt.Errorf("message body is not a byte array: %v", m.Body)
 	}
-	b := make([]byte, m.Body.Get("byteLength").Int())
-	js.CopyBytesToGo(b, m.Body)
-	return b, nil
+	return jsutil.BytesFromJS(m.Body), nil
 }

@@ -1,10 +1,7 @@
 package kv
 
 import (
-	"fmt"
-	"syscall/js"
-
-	"github.com/syumai/workers-go/internal/jsutil"
+	kvjs "github.com/syumai/workers-go/exp/cloudflare/kv"
 )
 
 // ListOptions represents Cloudflare KV namespace list options.
@@ -15,21 +12,15 @@ type ListOptions struct {
 	Cursor string
 }
 
-func (opts *ListOptions) toJS() js.Value {
+func (opts *ListOptions) toKVJS() kvjs.KVNamespaceListOptions {
 	if opts == nil {
-		return js.Undefined()
+		return kvjs.KVNamespaceListOptions{}
 	}
-	obj := jsutil.NewObject()
-	if opts.Limit != 0 {
-		obj.Set("limit", opts.Limit)
+	return kvjs.KVNamespaceListOptions{
+		Limit:  float64(opts.Limit),
+		Prefix: opts.Prefix,
+		Cursor: opts.Cursor,
 	}
-	if opts.Prefix != "" {
-		obj.Set("prefix", opts.Prefix)
-	}
-	if opts.Cursor != "" {
-		obj.Set("cursor", opts.Cursor)
-	}
-	return obj
 }
 
 // ListKey represents Cloudflare KV namespace list key.
@@ -41,19 +32,13 @@ type ListKey struct {
 	// Metadata   map[string]any // TODO: implement
 }
 
-// toListKey converts JavaScript side's KVNamespaceListKey to *ListKey.
-//   - https://github.com/cloudflare/workers-types/blob/3012f263fb1239825e5f0061b267c8650d01b717/index.d.ts#L940
-func toListKey(v js.Value) (*ListKey, error) {
-	expVal := v.Get("expiration")
-	var exp int
-	if !expVal.IsUndefined() {
-		exp = expVal.Int()
-	}
+// toListKey converts a decoded kvjs.KVNamespaceListKey to *ListKey.
+func toListKey(k kvjs.KVNamespaceListKey) *ListKey {
 	return &ListKey{
-		Name:       v.Get("name").String(),
-		Expiration: exp,
-		// Metadata // TODO: implement. This may return an error, so this func signature has an error in return parameters.
-	}, nil
+		Name:       k.Name,
+		Expiration: int(k.Expiration),
+		// Metadata // TODO: implement.
+	}
 }
 
 // ListResult represents Cloudflare KV namespace list result.
@@ -64,38 +49,19 @@ type ListResult struct {
 	Cursor       string
 }
 
-// toListResult converts JavaScript side's KVNamespaceListResult to *ListResult.
-//   - https://github.com/cloudflare/workers-types/blob/3012f263fb1239825e5f0061b267c8650d01b717/index.d.ts#L952
-func toListResult(v js.Value) (*ListResult, error) {
-	keysVal := v.Get("keys")
-	keys := make([]*ListKey, keysVal.Length())
-	for i := 0; i < len(keys); i++ {
-		key, err := toListKey(keysVal.Index(i))
-		if err != nil {
-			return nil, fmt.Errorf("error converting to ListKey: %w", err)
-		}
-		keys[i] = key
-	}
-
-	cursorVal := v.Get("cursor")
-	var cursor string
-	if !cursorVal.IsUndefined() {
-		cursor = cursorVal.String()
-	}
-
-	return &ListResult{
-		Keys:         keys,
-		ListComplete: v.Get("list_complete").Bool(),
-		Cursor:       cursor,
-	}, nil
-}
-
 // List lists keys stored into the KV namespace.
 func (ns *Namespace) List(opts *ListOptions) (*ListResult, error) {
-	p := ns.instance.Call("list", opts.toJS())
-	v, err := jsutil.AwaitPromise(p)
+	res, err := ns.instance.List(opts.toKVJS())
 	if err != nil {
 		return nil, err
 	}
-	return toListResult(v)
+	keys := make([]*ListKey, len(res.Keys))
+	for i, k := range res.Keys {
+		keys[i] = toListKey(k)
+	}
+	return &ListResult{
+		Keys:         keys,
+		ListComplete: res.ListComplete,
+		Cursor:       res.Cursor,
+	}, nil
 }

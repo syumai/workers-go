@@ -1,0 +1,19 @@
+{
+  "name": "gen-bindings",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "extract": "node src/extract.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "packageManager": "pnpm@10.7.1",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260906.1",
+    "@types/node": "^25.9.5",
+    "typescript": "^6.0.3"
+  }
+}

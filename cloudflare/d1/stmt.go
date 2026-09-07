@@ -39,11 +39,7 @@ func (s *stmt) ExecContext(_ context.Context, args []driver.NamedValue) (driver.
 	argValues := make([]any, len(args))
 	for i, arg := range args {
 		if src, ok := arg.Value.([]byte); ok {
-			dst := jsutil.Uint8ArrayClass.New(len(src))
-			if n := js.CopyBytesToJS(dst, src); n != len(src) {
-				return nil, errors.New("incomplete copy into Uint8Array")
-			}
-			argValues[i] = dst
+			argValues[i] = jsutil.BytesToJS(src)
 		} else {
 			argValues[i] = arg.Value
 		}
@@ -66,11 +62,7 @@ func (s *stmt) QueryContext(_ context.Context, args []driver.NamedValue) (driver
 	argValues := make([]any, len(args))
 	for i, arg := range args {
 		if src, ok := arg.Value.([]byte); ok {
-			dst := jsutil.Uint8ArrayClass.New(len(src))
-			if n := js.CopyBytesToJS(dst, src); n != len(src) {
-				return nil, errors.New("incomplete copy into Uint8Array")
-			}
-			argValues[i] = dst
+			argValues[i] = jsutil.BytesToJS(src)
 		} else {
 			argValues[i] = arg.Value
 		}

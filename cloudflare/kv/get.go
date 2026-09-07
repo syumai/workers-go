@@ -1,10 +1,10 @@
 package kv
 
 import (
+	"errors"
 	"io"
-	"syscall/js"
 
-	"github.com/syumai/workers-go/internal/jsutil"
+	kvjs "github.com/syumai/workers-go/exp/cloudflare/kv"
 )
 
 // GetOptions represents Cloudflare KV namespace get options.
@@ -13,36 +13,45 @@ type GetOptions struct {
 	CacheTTL int
 }
 
-func (opts *GetOptions) toJS(type_ string) js.Value {
-	obj := jsutil.NewObject()
-	obj.Set("type", type_)
-	if opts == nil {
-		return obj
+// toKVJS builds the options for KVNamespace.get/getWithMetadata: the "type"
+// discriminant (typ) plus the caller's CacheTTL, if any.
+func (opts *GetOptions) toKVJS(typ string) kvjs.KVNamespaceGetOptions {
+	o := kvjs.KVNamespaceGetOptions{Type: typ}
+	if opts != nil {
+		o.CacheTTL = opts.CacheTTL
 	}
-	if opts.CacheTTL != 0 {
-		obj.Set("cacheTtl", opts.CacheTTL)
-	}
-	return obj
+	return o
 }
 
+// ErrNotFound is returned by GetString and GetReader when no value exists
+// for the given key.
+var ErrNotFound = errors.New("kv: key not found")
+
 // GetString gets string value by the specified key.
+//   - if the key doesn't exist, returns ErrNotFound.
 //   - if a network error happens, returns error.
 func (ns *Namespace) GetString(key string, opts *GetOptions) (string, error) {
-	p := ns.instance.Call("get", key, opts.toJS("text"))
-	v, err := jsutil.AwaitPromise(p)
+	v, err := ns.instance.GetText(key, opts.toKVJS("text"))
 	if err != nil {
 		return "", err
 	}
-	return v.String(), nil
+	if v == nil {
+		return "", ErrNotFound
+	}
+	return *v, nil
 }
 
 // GetReader gets stream value by the specified key.
+//   - if the key doesn't exist, returns ErrNotFound.
 //   - if a network error happens, returns error.
-func (ns *Namespace) GetReader(key string, opts *GetOptions) (io.Reader, error) {
-	p := ns.instance.Call("get", key, opts.toJS("stream"))
-	v, err := jsutil.AwaitPromise(p)
+//   - the caller is responsible for closing the returned io.ReadCloser.
+func (ns *Namespace) GetReader(key string, opts *GetOptions) (io.ReadCloser, error) {
+	v, err := ns.instance.GetStream(key, opts.toKVJS("stream"))
 	if err != nil {
 		return nil, err
 	}
-	return jsutil.ConvertReadableStreamToReadCloser(v), nil
+	if v == nil {
+		return nil, ErrNotFound
+	}
+	return v, nil
 }

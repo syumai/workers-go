@@ -3,10 +3,10 @@ package cache
 import (
 	"errors"
 	"net/http"
-	"syscall/js"
+
+	cachejs "github.com/syumai/workers-go/exp/cloudflare/cache"
 
 	"github.com/syumai/workers-go/internal/jshttp"
-	"github.com/syumai/workers-go/internal/jsutil"
 )
 
 // Put attempts to add a response to the cache, using the given request as the key.
@@ -16,11 +16,7 @@ import (
 // - Cache-Control instructs not to cache or if the response is too large.
 // docs: https://developers.cloudflare.com/workers/runtime-apis/cache/#put
 func (c *Cache) Put(req *http.Request, res *http.Response) error {
-	_, err := jsutil.AwaitPromise(c.instance.Call("put", jshttp.ToJSRequest(req), jshttp.ToJSResponse(res)))
-	if err != nil {
-		return err
-	}
-	return nil
+	return c.instance.Put(jshttp.ToJSRequest(req), jshttp.ToJSResponse(res))
 }
 
 // ErrCacheNotFound is returned when there is no matching cache.
@@ -32,20 +28,17 @@ type MatchOptions struct {
 	IgnoreMethod bool
 }
 
-// toJS converts MatchOptions to JS object.
-func (opts *MatchOptions) toJS() js.Value {
+func (opts *MatchOptions) toCacheJS() cachejs.CacheQueryOptions {
 	if opts == nil {
-		return js.Undefined()
+		return cachejs.CacheQueryOptions{}
 	}
-	obj := jsutil.NewObject()
-	obj.Set("ignoreMethod", opts.IgnoreMethod)
-	return obj
+	return cachejs.CacheQueryOptions{IgnoreMethod: opts.IgnoreMethod}
 }
 
 // Match returns the response object keyed to that request.
 // docs: https://developers.cloudflare.com/workers/runtime-apis/cache/#match
 func (c *Cache) Match(req *http.Request, opts *MatchOptions) (*http.Response, error) {
-	res, err := jsutil.AwaitPromise(c.instance.Call("match", jshttp.ToJSRequest(req), opts.toJS()))
+	res, err := c.instance.Match(jshttp.ToJSRequest(req), opts.toCacheJS())
 	if err != nil {
 		return nil, err
 	}
@@ -61,25 +54,22 @@ type DeleteOptions struct {
 	IgnoreMethod bool
 }
 
-// toJS converts DeleteOptions to JS object.
-func (opts *DeleteOptions) toJS() js.Value {
+func (opts *DeleteOptions) toCacheJS() cachejs.CacheQueryOptions {
 	if opts == nil {
-		return js.Undefined()
+		return cachejs.CacheQueryOptions{}
 	}
-	obj := jsutil.NewObject()
-	obj.Set("ignoreMethod", opts.IgnoreMethod)
-	return obj
+	return cachejs.CacheQueryOptions{IgnoreMethod: opts.IgnoreMethod}
 }
 
 // Delete removes the Response object from the cache.
 // This method only purges content of the cache in the data center that the Worker was invoked.
 // Returns ErrCacheNotFount if the response was not cached.
 func (c *Cache) Delete(req *http.Request, opts *DeleteOptions) error {
-	res, err := jsutil.AwaitPromise(c.instance.Call("delete", jshttp.ToJSRequest(req), opts.toJS()))
+	ok, err := c.instance.Delete(jshttp.ToJSRequest(req), opts.toCacheJS())
 	if err != nil {
 		return err
 	}
-	if !res.Bool() {
+	if !ok {
 		return ErrCacheNotFound
 	}
 	return nil

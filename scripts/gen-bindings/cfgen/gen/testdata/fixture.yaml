@@ -1,0 +1,27 @@
+package: widgets
+doc: |
+  Package widgets is a synthetic fixture package used only by cfgen's
+  golden test. It exercises: a handle type, a data type, a string-literal
+  alias enum, a Promise-returning method, a Record-returning method, an
+  array field, an optional field, a rename, a types override, a
+  handwritten method, extends-flattening (GeoExt inherits and overrides a
+  field from GeoBase), and intersection-flattening (GeoCombined merges a
+  ref and an inline object literal).
+include:
+  - Widget
+  - WidgetInfo
+  - WidgetStatus
+  - WidgetFactory
+  - GeoBase
+  - GeoExt
+  - GeoCombined
+bindings:
+  - Widget
+rename:
+  WidgetInfo.widget_name: Name
+types:
+  WidgetInfo.cacheTtl: "*int"
+exclude:
+  - WidgetInfo.internalNote
+handwritten:
+  - WidgetFactory.create

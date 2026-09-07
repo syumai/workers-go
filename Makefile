@@ -19,3 +19,15 @@ build-examples:
 .PHONY: gen-wasm-exec
 gen-wasm-exec:
 	cd scripts/gen-wasm-exec && pnpm run gen --go $(GO_VERSION) --tinygo $(TINYGO_VERSION)
+
+.PHONY: gen-bindings-extract
+gen-bindings-extract:
+	pnpm -C scripts/gen-bindings install --frozen-lockfile && pnpm -C scripts/gen-bindings run extract
+
+.PHONY: gen-bindings
+gen-bindings: gen-bindings-extract
+	go run -C scripts/gen-bindings ./cfgen -root $(CURDIR)
+
+.PHONY: gen-bindings-check
+gen-bindings-check:
+	go run -C scripts/gen-bindings ./cfgen -root $(CURDIR) -check

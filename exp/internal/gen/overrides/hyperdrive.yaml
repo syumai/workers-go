@@ -1,0 +1,15 @@
+package: hyperdrive
+doc: |
+  Package hyperdrive provides the Hyperdrive binding
+  (https://developers.cloudflare.com/hyperdrive/).
+
+  TODO: Hyperdrive.connect returns a Socket synchronously; bridging it to
+  cloudflare/sockets' net.Conn wrapper is handwritten and not implemented
+  in this phase. Call JSValue().Call("connect") directly in the meantime
+  if you need it before the handwritten bridge lands.
+include:
+  - Hyperdrive
+bindings:
+  - Hyperdrive
+handwritten:
+  - Hyperdrive.connect

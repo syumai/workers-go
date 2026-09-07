@@ -1,0 +1,30 @@
+package: workflows
+doc: |
+  Package workflows provides the Workflows binding
+  (https://developers.cloudflare.com/workflows/).
+include:
+  - Workflow
+  - WorkflowInstance
+  - WorkflowInstanceCreateOptions
+  - WorkflowInstanceTerminateOptions
+  - WorkflowInstanceRestartOptions
+  - WorkflowInstanceLocationHint
+  - WorkflowBatchDeleteResult
+  - InstanceStatus
+bindings:
+  - Workflow
+types:
+  # PARAMS is a TypeScript generic type parameter (the workflow's
+  # user-defined event payload shape); cfgen does not generate Go generics,
+  # so it is passed through as an opaque js.Value.
+  WorkflowInstanceCreateOptions.params: "js.Value"
+exclude:
+  # createBatch takes an array of WorkflowInstanceCreateOptions<PARAMS> and
+  # returns an array of WorkflowInstance handles; a batch API is left for a
+  # follow-up rather than generating an under-designed one now.
+  - Workflow.createBatch
+  # sendEvent's single parameter is a destructured object literal in the
+  # .d.ts ({ type, payload }); the IR records its "name" as the raw
+  # destructuring pattern text, which is not a valid Go identifier, so it
+  # cannot be generated as an ordinary method parameter.
+  - WorkflowInstance.sendEvent
