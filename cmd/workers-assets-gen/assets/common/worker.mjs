@@ -49,6 +49,7 @@ async function scheduled(event, env, ctx) {
   return binding.runScheduler(event);
 }
 
+
 async function queue(batch, env, ctx) {
   const binding = {};
   await run(createRuntimeContext({ env, ctx, binding }));
@@ -63,9 +64,16 @@ async function onRequest(ctx) {
   return binding.handleRequest(request);
 }
 
+async function email(message, env, ctx) {
+  const binding = {};
+  await run(createRuntimeContext({ env, ctx, binding }));
+  return binding.handleEmail(message);
+}
+
 export default {
   fetch,
   scheduled,
   queue,
   onRequest,
+  email,
 };
