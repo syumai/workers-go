@@ -27,8 +27,6 @@ type SocketOptions struct {
 	AllowHalfOpen   bool            `json:"allowHalfOpen"`
 }
 
-const defaultDeadline = 999999 * time.Hour
-
 func Connect(ctx context.Context, addr string, opts *SocketOptions) (net.Conn, error) {
 	connect, err := cfruntimecontext.GetRuntimeContextValue("connect")
 	if err != nil {
@@ -49,6 +47,6 @@ func Connect(ctx context.Context, addr string, opts *SocketOptions) (net.Conn, e
 	if err != nil {
 		return nil, err
 	}
-	deadline := time.Now().Add(defaultDeadline)
-	return newSocket(ctx, sockVal, deadline, deadline), nil
+	// A zero deadline means "no timeout" (see Socket.Read/Write).
+	return newSocket(ctx, sockVal, time.Time{}, time.Time{}), nil
 }

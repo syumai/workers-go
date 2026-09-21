@@ -98,9 +98,9 @@ func StrRecordToMap(v js.Value) map[string]string {
 	return result
 }
 
-// MaybeString returns string value of given JavaScript value or returns "" if the value is undefined.
+// MaybeString returns string value of given JavaScript value or returns "" if the value is undefined or null.
 func MaybeString(v js.Value) string {
-	if v.IsUndefined() {
+	if v.IsUndefined() || v.IsNull() {
 		return ""
 	}
 	return v.String()

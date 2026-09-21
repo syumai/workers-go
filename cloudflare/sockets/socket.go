@@ -2,9 +2,12 @@ package sockets
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"os"
+	"strconv"
+	"sync"
 	"syscall/js"
 	"time"
 
@@ -22,6 +25,7 @@ func newSocket(ctx context.Context, sockVal js.Value, readDeadline, writeDeadlin
 
 		reader:    readCloser,
 		writerVal: writerVal,
+		openedVal: sockVal.Get("opened"),
 
 		readDeadline:  readDeadline,
 		writeDeadline: writeDeadline,
@@ -47,15 +51,33 @@ type Socket struct {
 	close      func()
 	closeRead  func()
 	closeWrite func()
+
+	// openedVal is the JS `socket.opened` promise. It is awaited lazily
+	// (and only once) by LocalAddr/RemoteAddr, since resolving it requires
+	// a JS round-trip that most callers never need.
+	openedVal  js.Value
+	openedOnce sync.Once
+	localAddr  net.Addr
+	remoteAddr net.Addr
 }
 
 var _ net.Conn = (*Socket)(nil)
+
+// withOptionalDeadline is like context.WithDeadline, except that a zero
+// deadline (the net.Conn convention for "no deadline") does not produce an
+// already-expired context; it just derives a cancelable context from ctx.
+func withOptionalDeadline(ctx context.Context, deadline time.Time) (context.Context, context.CancelFunc) {
+	if deadline.IsZero() {
+		return context.WithCancel(ctx)
+	}
+	return context.WithDeadline(ctx, deadline)
+}
 
 // Read reads data from the connection.
 // Read can be made to time out and return an error after a fixed
 // time limit; see SetDeadline and SetReadDeadline.
 func (t *Socket) Read(b []byte) (n int, err error) {
-	ctx, cancel := context.WithDeadline(t.ctx, t.readDeadline)
+	ctx, cancel := withOptionalDeadline(t.ctx, t.readDeadline)
 	defer cancel()
 	done := make(chan struct{})
 	go func() {
@@ -74,17 +96,19 @@ func (t *Socket) Read(b []byte) (n int, err error) {
 // Write can be made to time out and return an error after a fixed
 // time limit; see SetDeadline and SetWriteDeadline.
 func (t *Socket) Write(b []byte) (n int, err error) {
-	ctx, cancel := context.WithDeadline(t.ctx, t.writeDeadline)
+	ctx, cancel := withOptionalDeadline(t.ctx, t.writeDeadline)
 	defer cancel()
 	done := make(chan struct{})
 	go func() {
 		arr := jsutil.NewUint8Array(len(b))
 		js.CopyBytesToJS(arr, b)
-		_, err = jsutil.AwaitPromise(t.writerVal.Call("write", arr))
-		// TODO: handle error
-		if err == nil {
-			n = len(b)
+		_, werr := jsutil.AwaitPromise(t.writerVal.Call("write", arr))
+		if werr != nil {
+			err = fmt.Errorf("sockets: write failed: %w", werr)
+			close(done)
+			return
 		}
+		n = len(b)
 		close(done)
 	}()
 	select {
@@ -121,14 +145,55 @@ func (t *Socket) CloseWrite() error {
 	return nil
 }
 
-// LocalAddr returns the local network address, if known.
-func (t *Socket) LocalAddr() net.Addr {
-	return nil
+// resolveAddrs lazily awaits socket.opened and caches the parsed local and
+// remote addresses. It is safe to call concurrently and is a no-op after the
+// first call.
+//
+// LocalAddr/RemoteAddr must never return nil: net/http's unencrypted HTTP/2
+// (h2c) path calls conn.RemoteAddr().String() without a nil check
+// (net/http.unencryptedHTTP2Request.ServeHTTP), and grpc-go stores both
+// addresses in peer.Peer. If socket.opened rejects, both addresses fall back
+// to the zero Addr{} (Network()=="tcp", String()=="") rather than nil.
+func (t *Socket) resolveAddrs() {
+	t.openedOnce.Do(func() {
+		info, err := jsutil.AwaitPromise(t.openedVal)
+		if err != nil {
+			t.localAddr = Addr{}
+			t.remoteAddr = Addr{}
+			return
+		}
+		t.localAddr = parseAddr(jsutil.MaybeString(info.Get("localAddress")))
+		t.remoteAddr = parseAddr(jsutil.MaybeString(info.Get("remoteAddress")))
+	})
 }
 
-// RemoteAddr returns the remote network address, if known.
+// parseAddr parses a "host:port" string into a *net.TCPAddr when possible,
+// falling back to an opaque Addr (possibly with s == "") otherwise.
+func parseAddr(s string) net.Addr {
+	if s != "" {
+		if host, portStr, err := net.SplitHostPort(s); err == nil {
+			if ip := net.ParseIP(host); ip != nil {
+				if port, err := strconv.Atoi(portStr); err == nil {
+					return &net.TCPAddr{IP: ip, Port: port}
+				}
+			}
+		}
+	}
+	return Addr{addr: s}
+}
+
+// LocalAddr returns the local network address, if known. It never returns
+// nil; see resolveAddrs for why.
+func (t *Socket) LocalAddr() net.Addr {
+	t.resolveAddrs()
+	return t.localAddr
+}
+
+// RemoteAddr returns the remote network address, if known. It never returns
+// nil; see resolveAddrs for why.
 func (t *Socket) RemoteAddr() net.Addr {
-	return nil
+	t.resolveAddrs()
+	return t.remoteAddr
 }
 
 // SetDeadline sets the read and write deadlines associated

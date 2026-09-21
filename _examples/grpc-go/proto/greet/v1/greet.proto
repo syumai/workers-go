@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package greet.v1;
+
+option go_package = "github.com/syumai/workers-go/_examples/grpc-go/gen/greet/v1;greetv1";
+
+// GreeterService greets people and echoes chat messages.
+service GreeterService {
+  // SayHello returns a greeting for the given name.
+  rpc SayHello(SayHelloRequest) returns (SayHelloResponse) {}
+
+  // Chat echoes every incoming message back, prefixed, until the client
+  // closes the stream.
+  rpc Chat(stream ChatRequest) returns (stream ChatResponse) {}
+}
+
+message SayHelloRequest {
+  string name = 1;
+}
+
+message SayHelloResponse {
+  string name = 1;
+}
+
+message ChatRequest {
+  string message = 1;
+}
+
+message ChatResponse {
+  string message = 1;
+}
