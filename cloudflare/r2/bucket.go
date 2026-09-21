@@ -46,9 +46,10 @@ func (r *Bucket) Head(key string) (*Object, error) {
 }
 
 // Get returns the result of `get` call to Bucket.
+//   - Returns ObjectBody which includes the object's body.
 //   - if the object for given key doesn't exist, returns nil.
 //   - if a network error happens, returns error.
-func (r *Bucket) Get(key string) (*Object, error) {
+func (r *Bucket) Get(key string) (*ObjectBody, error) {
 	p := r.instance.Call("get", key)
 	v, err := jsutil.AwaitPromise(p)
 	if err != nil {
@@ -57,46 +58,14 @@ func (r *Bucket) Get(key string) (*Object, error) {
 	if v.IsNull() {
 		return nil, nil
 	}
-	return toObject(v)
-}
-
-// PutOptions represents Cloudflare R2 put options.
-//   - https://github.com/cloudflare/workers-types/blob/3012f263fb1239825e5f0061b267c8650d01b717/index.d.ts#L1128
-type PutOptions struct {
-	HTTPMetadata   HTTPMetadata
-	CustomMetadata map[string]string
-	MD5            string
-}
-
-func (opts *PutOptions) toJS() js.Value {
-	if opts == nil {
-		return js.Undefined()
-	}
-	obj := jsutil.NewObject()
-	if opts.HTTPMetadata != (HTTPMetadata{}) {
-		obj.Set("httpMetadata", opts.HTTPMetadata.toJS())
-	}
-	if opts.CustomMetadata != nil {
-		// convert map[string]string to map[string]any.
-		// This makes the map convertible to JS.
-		// see: https://pkg.go.dev/syscall/js#ValueOf
-		customMeta := make(map[string]any, len(opts.CustomMetadata))
-		for k, v := range opts.CustomMetadata {
-			customMeta[k] = v
-		}
-		obj.Set("customMetadata", customMeta)
-	}
-	if opts.MD5 != "" {
-		obj.Set("md5", opts.MD5)
-	}
-	return obj
+	return toObjectBody(v)
 }
 
 // Put returns the result of `put` call to Bucket.
 //   - This method copies all bytes into memory for implementation restriction.
 //   - Body field of *Object is always nil for Put call.
 //   - if a network error happens, returns error.
-func (r *Bucket) Put(key string, value io.ReadCloser, opts *PutOptions) (*Object, error) {
+func (r *Bucket) Put(key string, value io.ReadCloser, opts *R2PutOptions) (*Object, error) {
 	// fetch body cannot be ReadableStream. see: https://github.com/whatwg/fetch/issues/1438
 	b, err := io.ReadAll(value)
 	if err != nil {
@@ -132,4 +101,29 @@ func (r *Bucket) List() (*Objects, error) {
 		return nil, err
 	}
 	return toObjects(v)
+}
+
+// CreateMultipartUpload creates a multipart upload.
+//   - Returns Promise which resolves to an R2MultipartUpload object representing the newly
+//     created multipart upload. Once the multipart upload has been created, the multipart
+//     upload can be immediately interacted with globally, either through the Workers API, or
+//     through the S3 API.
+//   - if a network error happens, returns error.
+func (r *Bucket) CreateMultipartUpload(key string, options *R2MultipartOptions) (*R2MultipartUpload, error) {
+	p := r.instance.Call("createMultipartUpload", key, options.toJS())
+	v, err := jsutil.AwaitPromise(p)
+	if err != nil {
+		return nil, err
+	}
+	return &R2MultipartUpload{instance: v}, nil
+}
+
+// ResumeMultipartUpload returns an object representing a multipart upload with the given key and uploadId.
+//   - The resumeMultipartUpload operation does not perform any checks to ensure the
+//     validity of the uploadId, nor does it verify the existence of a corresponding active
+//     multipart upload. This is done to minimize latency before being able to call subsequent
+//     operations on the R2MultipartUpload object.
+func (r *Bucket) ResumeMultipartUpload(key string, uploadId string) *R2MultipartUpload {
+	v := r.instance.Call("resumeMultipartUpload", key, uploadId)
+	return &R2MultipartUpload{instance: v}
 }

@@ -1,0 +1,11 @@
+name = "r2-multipart-upload"
+main = "./build/worker.mjs"
+compatibility_date = "2022-05-13"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "my-bucket"
+preview_bucket_name = "my-bucket-dev"
+
+[build]
+command = "make build"
