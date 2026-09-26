@@ -1,0 +1,19 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "workers-ai-example",
+	"main": "./build/worker.mjs",
+	"compatibility_date": "2025-04-06",
+	"build": {
+		"command": "npm run build"
+	},
+	"observability": {
+		"enabled": true
+	},
+	"ai": {
+		"binding": "AI"
+	}
+}
