@@ -7,13 +7,17 @@
       {
         "name": "COUNTER",
         "class_name": "Counter"
+      },
+      {
+        "name": "NOTEBOOK",
+        "class_name": "Notebook"
       }
     ]
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["Counter"]
+      "new_sqlite_classes": ["Counter", "Notebook"]
     }
   ]
 }
