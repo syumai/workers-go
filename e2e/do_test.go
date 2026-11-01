@@ -7,10 +7,46 @@ import (
 	"testing"
 )
 
-// TestDurableObject checks that the Go SDK's Durable Object stub
-// (cloudflare.NewDurableObjectNamespace/IdFromName/Get/Fetch) can drive a
-// real, JS-defined Durable Object class under workerd: see
-// testdata/workers/durableobject/do.mjs's Counter.
+// testDurableObjectRPC calls the JS Counter's add method through
+// cloudflare.DurableObjectStub.RPC (exp/cloudflare/rpc.Stub.CallJSON) and
+// checks that a later fetch() sees the same persisted counter.
+func testDurableObjectRPC(w *worker) func(*testing.T) {
+	return func(t *testing.T) {
+		const name = "e2e-rpc"
+
+		resp, body := w.Get(t, "/counter/rpc?name="+name+"&n=2")
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("first rpc status = %d, want %d (body = %q)", resp.StatusCode, http.StatusOK, body)
+		}
+		if body != "2" {
+			t.Errorf("first rpc body = %q, want %q", body, "2")
+		}
+
+		resp, body = w.Get(t, "/counter/rpc?name="+name+"&n=3")
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("second rpc status = %d, want %d (body = %q)", resp.StatusCode, http.StatusOK, body)
+		}
+		if body != "5" {
+			t.Errorf("second rpc body = %q, want %q", body, "5")
+		}
+
+		// fetch() on the same id increments the counter add() just wrote.
+		resp, body = w.Get(t, "/counter?name="+name)
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("fetch status = %d, want %d (body = %q)", resp.StatusCode, http.StatusOK, body)
+		}
+		if body != "6" {
+			t.Errorf("fetch body = %q, want %q", body, "6")
+		}
+	}
+}
+
+// TestDurableObject drives Durable Object bindings under wrangler dev.
+// The counter subtest calls fetch() on the JS Counter class. rpc calls
+// that class's add method through DurableObjectStub.RPC. The other
+// subtests host the Go Notebook class and exercise SQL storage,
+// transactions, blockConcurrencyWhile, and the KV storage methods. See
+// testdata/workers/durableobject.
 func TestDurableObject(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping e2e test in short mode")
@@ -49,4 +85,11 @@ func TestDurableObject(t *testing.T) {
 			t.Errorf("other-name request body = %q, want %q", body3, "1")
 		}
 	})
+
+	t.Run("rpc", testDurableObjectRPC(w))
+	t.Run("sql", testDurableObjectSQL(w))
+	t.Run("opendb", testDurableObjectOpenDB(w))
+	t.Run("transaction", testDurableObjectTransaction(w))
+	t.Run("blockConcurrencyWhile", testDurableObjectBlockConcurrencyWhile(w))
+	t.Run("storage", testDurableObjectStorage(w))
 }

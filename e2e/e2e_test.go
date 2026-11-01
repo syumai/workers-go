@@ -43,7 +43,10 @@ type fixture struct {
 // + GOOS=js GOARCH=wasm) before any test runs.
 var fixtures = []fixture{
 	{name: "kitchensink"},
-	{name: "durableobject"},
+	// Notebook is a Go-hosted, SQLite-backed Durable Object class (see
+	// testdata/workers/durableobject). Counter stays a JS class defined in
+	// do.mjs, re-exported by entry.mjs alongside this generated subclass.
+	{name: "durableobject", assetsGenArgs: []string{"-durable-objects=Notebook"}},
 	{name: "sockets"},
 	{name: "pages"},
 	{name: "websocket"},
