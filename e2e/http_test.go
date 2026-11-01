@@ -241,6 +241,10 @@ func TestKitchenSink(t *testing.T) {
 		}
 	})
 
+	t.Run("issue101/empty_handler", testIssue101Empty(w))
+	t.Run("issue101/status_and_headers_without_body", testIssue101Nobody(w))
+	t.Run("issue163/value_new_after_response", testIssue163CallbackAfterResponse(w))
+
 	t.Run("waituntil/runs_after_response", func(t *testing.T) {
 		resp, body := w.Get(t, "/waituntil")
 		if resp.StatusCode != http.StatusOK {
