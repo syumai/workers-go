@@ -5,6 +5,7 @@ package workflows
 import (
 	"context"
 	"errors"
+	"strings"
 	"syscall/js"
 	"testing"
 	"time"
@@ -353,6 +354,38 @@ func TestRegister_HandleWorkflowRun_UnregisteredClassName(t *testing.T) {
 	eventVal := fakeEvent(js.Undefined(), "instance-1", "NotRegistered")
 	if _, err := jsrt.Await(handle.Invoke(eventVal, fs.v)); err == nil {
 		t.Fatal("handleWorkflowRun resolved for an unregistered class name, want a rejection")
+	}
+}
+
+// TestHandleWorkflowRun_RethrowsEngineAbort verifies that a Runner error
+// produced when the runtime aborts the in-flight step (pause rejects
+// step.sleep with "Aborting engine: ...", and AwaitPromise prefixes that)
+// is rethrown with the original abort message. workerd only keeps the
+// control-plane status when run() rejects with that message; the prefixed
+// form is recorded as a user failure.
+func TestHandleWorkflowRun_RethrowsEngineAbort(t *testing.T) {
+	resetRunners(t)
+	withRuntimeContext(t, "MyWorkflow", js.Undefined())
+
+	Register("MyWorkflow", func(ctx context.Context, event *Event, step *Step) (js.Value, error) {
+		return js.Value{}, errors.New("failed on promise: Error: Aborting engine: User called pause")
+	})
+
+	handle := jsutil.Binding.Get("handleWorkflowRun")
+	fs := newFakeStep()
+	eventVal := fakeEvent(js.Undefined(), "instance-1", "MyWorkflow")
+	_, err := jsrt.Await(handle.Invoke(eventVal, fs.v))
+	if err == nil {
+		t.Fatal("handleWorkflowRun resolved on an engine abort, want a rejection")
+	}
+	// Await wraps the rejection once more on the way back into this test.
+	// The message handleWorkflowRun itself rejected with must be the bare
+	// abort text, so the prefix appears exactly once here.
+	if strings.Count(err.Error(), "failed on promise") != 1 {
+		t.Fatalf("engine abort rejection = %q, want the abort message without the AwaitPromise prefix", err.Error())
+	}
+	if !strings.Contains(err.Error(), "Aborting engine: User called pause") {
+		t.Fatalf("engine abort rejection = %q, want it to contain the abort message", err.Error())
 	}
 }
 

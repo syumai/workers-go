@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"syscall/js"
 	"time"
@@ -384,8 +385,36 @@ func init() {
 		}
 		event := eventFromJS(args[0])
 		step := &Step{v: args[1]}
-		return r(context.Background(), event, step)
+		result, err := r(context.Background(), event, step)
+		if abort, ok := engineAbortMessage(err); ok {
+			// Pause (and the other control-plane aborts) reject the
+			// in-flight step promise with "Aborting engine: ...".
+			// AwaitPromise prefixes that, and rejecting run() with the
+			// prefixed text makes workerd record a user failure (status
+			// "errored") instead of the control-plane status ("paused").
+			// The engine keeps the control-plane status only when run()
+			// rejects with the original abort message.
+			return js.Value{}, errors.New(abort)
+		}
+		return result, err
 	})
+}
+
+// engineAbortMessage returns the Workers runtime abort text embedded in
+// err. step.Sleep / step.waitForEvent reject with that text when the
+// isolate is aborted because the instance was paused or otherwise stopped
+// by the engine; it is not a step failure.
+func engineAbortMessage(err error) (string, bool) {
+	if err == nil {
+		return "", false
+	}
+	const marker = "Aborting engine:"
+	msg := err.Error()
+	i := strings.Index(msg, marker)
+	if i < 0 {
+		return "", false
+	}
+	return msg[i:], true
 }
 
 // currentClassName reads workflow.className off the runtime context — set

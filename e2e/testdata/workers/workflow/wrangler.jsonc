@@ -1,0 +1,12 @@
+{
+  "name": "workflow",
+  "main": "./build/worker.mjs",
+  "compatibility_date": "2025-06-01",
+  "workflows": [
+    {
+      "name": "e2e-workflow",
+      "binding": "E2E_WORKFLOW",
+      "class_name": "E2EWorkflow"
+    }
+  ]
+}
