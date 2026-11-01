@@ -43,6 +43,7 @@ func main() {
 	mux.HandleFunc("/healthz", handleHealthz)
 	mux.HandleFunc("/echo", handleEcho)
 	mux.HandleFunc("/cf", handleCF)
+	mux.HandleFunc("/cfexp", handleCFExp)
 	mux.HandleFunc("/stream", handleStream)
 	mux.HandleFunc("/fixed", handleFixed)
 	mux.HandleFunc("/env/", handleEnv)

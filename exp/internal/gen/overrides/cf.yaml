@@ -79,3 +79,15 @@ types:
   # risk that; a caller can still reach the always-safe standalone
   # IncomingRequestCfPropertiesBotManagement.BotManagement getter/field.
   IncomingRequestCfProperties.botManagement: "js.Value"
+# clientTrustScore is required on IncomingRequestCfPropertiesBotManagement
+# in workers-types, and that required-ness is kept when the field is
+# flattened onto IncomingRequestCfProperties. workerd omits the property
+# unless Bot Management is enabled (including under `wrangler dev`), and
+# the unguarded .Float() decode panics — cf.FromRequest then fails for an
+# ordinary fetch. Treat the field as optional: an absent value decodes as 0.
+optional:
+  - IncomingRequestCfProperties.clientTrustScore
+  - IncomingRequestCfPropertiesBotManagement.clientTrustScore
+  # Inherited onto the Enterprise interface via extends, and still decoded
+  # by that declaration's own fromJS.
+  - IncomingRequestCfPropertiesBotManagementEnterprise.clientTrustScore

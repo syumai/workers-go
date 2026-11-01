@@ -80,6 +80,8 @@ func TestValidateRejectsUnknownNames(t *testing.T) {
 		{"unknown types target", Overrides{Package: "x", Include: []string{"WidgetInfo"}, Types: map[string]string{"WidgetInfo.nope": "string"}}},
 		{"unknown handwritten target", Overrides{Package: "x", Include: []string{"Widget"}, Handwritten: []string{"Widget.nope"}}},
 		{"unknown exclude target", Overrides{Package: "x", Include: []string{"Widget"}, Exclude: []string{"Widget.nope"}}},
+		{"unknown optional target", Overrides{Package: "x", Include: []string{"Widget"}, Optional: []string{"Widget.nope"}}},
+		{"optional key is not Decl.member", Overrides{Package: "x", Include: []string{"Widget"}, Optional: []string{"Widget"}}},
 		{"binding not in include", Overrides{Package: "x", Include: []string{"WidgetInfo"}, Bindings: []string{"Widget"}}},
 		{"typeParams key not Decl.Param shape", Overrides{Package: "x", Include: []string{"Widget"}, TypeParams: map[string]string{"Widget": "js.Value"}}},
 		{"typeParams decl not in include", Overrides{Package: "x", Include: []string{"WidgetInfo"}, TypeParams: map[string]string{"Widget.T": "js.Value"}}},
@@ -723,5 +725,41 @@ func TestPascalCase(t *testing.T) {
 		if got := pascalCase(in); got != want {
 			t.Errorf("pascalCase(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+// TestOptionalOverrideGuardsFromJS verifies an `optional:` override makes
+// fromJS skip a property the IR marks required, instead of decoding it
+// unconditionally (Value.Float panics on undefined).
+func TestOptionalOverrideGuardsFromJS(t *testing.T) {
+	doc := &ir.IR{Decls: []ir.Decl{{
+		Kind: "interface",
+		Name: "Props",
+		Members: []ir.Member{{
+			Kind: "property",
+			Name: "score",
+			Type: &ir.Type{K: "prim", Name: "number"},
+		}},
+	}}}
+	ov := &Overrides{
+		Package:  "x",
+		Include:  []string{"Props"},
+		Optional: []string{"Props.score"},
+		Path:     "test",
+	}
+	if err := ov.Validate(doc); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Generate(doc, ov)
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(result.Source)
+	const want = `if s := v.Get("score"); !s.IsUndefined() && !s.IsNull()`
+	if !strings.Contains(src, want) {
+		t.Errorf("fromJS missing optional guard %q\n%s", want, src)
+	}
+	if strings.Contains(src, `out.Score = v.Get("score").Float()`) {
+		t.Errorf("fromJS still decodes score unconditionally\n%s", src)
 	}
 }

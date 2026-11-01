@@ -57,6 +57,56 @@ func TestFromJS(t *testing.T) {
 	if props.Country != "US" {
 		t.Errorf("props.Country = %q, want %q", props.Country, "US")
 	}
+	if props.ClientTrustScore != 54 {
+		t.Errorf("props.ClientTrustScore = %v, want 54", props.ClientTrustScore)
+	}
+}
+
+// TestFromJS_IsEUCountry coerces the shapes workerd actually produces.
+// workers-types says the property is the string "1"; local workerd sends
+// a boolean. Value.String on that boolean is not a usable country flag.
+func TestFromJS_IsEUCountry(t *testing.T) {
+	cases := map[string]struct {
+		value any
+		want  string
+	}{
+		"string 1":      {value: "1", want: "1"},
+		"empty string":  {value: "", want: ""},
+		"boolean true":  {value: true, want: "1"},
+		"boolean false": {value: false, want: ""},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			v := fakeCfProperties()
+			v.Set("isEUCountry", tc.value)
+			props, err := FromJS(v)
+			if err != nil {
+				t.Fatalf("FromJS() failed: %v", err)
+			}
+			if props.IsEUCountry != tc.want {
+				t.Errorf("props.IsEUCountry = %q, want %q", props.IsEUCountry, tc.want)
+			}
+		})
+	}
+}
+
+// TestFromJS_OmitsClientTrustScore verifies a cf object without
+// clientTrustScore (what workerd sends when Bot Management is not
+// enabled) decodes instead of panicking in Value.Float.
+func TestFromJS_OmitsClientTrustScore(t *testing.T) {
+	v := fakeCfProperties()
+	v.Delete("clientTrustScore")
+
+	props, err := FromJS(v)
+	if err != nil {
+		t.Fatalf("FromJS() failed: %v", err)
+	}
+	if props.ClientTrustScore != 0 {
+		t.Errorf("props.ClientTrustScore = %v, want 0", props.ClientTrustScore)
+	}
+	if props.Colo != "SJC" {
+		t.Errorf("props.Colo = %q, want %q", props.Colo, "SJC")
+	}
 }
 
 // TestFromRequest_MissingTriggerObj verifies FromRequest returns an error

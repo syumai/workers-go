@@ -386,6 +386,13 @@ func (p *Package) isExcluded(declName, member string) bool {
 	return containsAny(p.Ov.Exclude, declName, memberKey(declName, member))
 }
 
+// isForcedOptional reports whether overrides mark declName.member optional
+// even though the IR says it is required. Only the "Decl.member" key
+// matches: a bare declaration name would make every field optional.
+func (p *Package) isForcedOptional(declName, member string) bool {
+	return containsAny(p.Ov.Optional, memberKey(declName, member))
+}
+
 func containsAny(list []string, candidates ...string) bool {
 	for _, item := range list {
 		for _, c := range candidates {

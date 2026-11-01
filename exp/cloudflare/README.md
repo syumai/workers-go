@@ -664,6 +664,12 @@ exclude:                           # drop a specific member of an included
                                     # declaration (e.g. one cfgen can't
                                     # generate, or one you don't want yet)
   - ImagesBinding.hosted
+optional:                          # "Decl.member" properties the .d.ts marks
+                                    # required but the runtime omits. fromJS
+                                    # skips undefined/null instead of panicking
+                                    # (e.g. Value.Float). The Go field type is
+                                    # unchanged; an absent number stays 0.
+  - IncomingRequestCfProperties.clientTrustScore
 ```
 
 A method whose only parameter is a callback shaped `(a: A) => Promise<U>` or
