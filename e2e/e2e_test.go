@@ -4,10 +4,10 @@
 // check behavior that Node-based fake-JS tests cannot: the actual shape of
 // worker.mjs/app.wasm wiring, KV's real API surface, streaming responses,
 // FixedLengthStream, exp/cloudflare/cf.FromRequest against workerd's
-// request.cf object, the Images binding, and Workers AI (skipped when
+// request.cf object, the Images binding, Workers AI (skipped when
 // local wrangler has no Cloudflare account, because that binding has no
-// local simulator). See tmp/test-plan/04-wrangler-e2e.md for the design
-// this package implements.
+// local simulator), and Workflows. See tmp/test-plan/04-wrangler-e2e.md
+// for the design this package implements.
 package e2e
 
 import (
@@ -50,6 +50,10 @@ var fixtures = []fixture{
 	{name: "sockets"},
 	{name: "pages"},
 	{name: "websocket"},
+	// E2EWorkflow is a Go-hosted Workflow class. -workflows appends the
+	// WorkflowEntrypoint subclass worker.mjs needs; wrangler.jsonc's
+	// class_name must match.
+	{name: "workflow", assetsGenArgs: []string{"-workflows=E2EWorkflow"}},
 	{name: "tinygo", tinygo: true},
 }
 
