@@ -57,6 +57,12 @@ type Overrides struct {
 	Overloads   map[string][]OverloadEntry `yaml:"overloads"`
 	Handwritten []string                   `yaml:"handwritten"`
 	Exclude     []string                   `yaml:"exclude"`
+	// Optional lists "Decl.member" properties that workers-types marks
+	// required, but that the runtime omits. fromJS treats each one as
+	// optional (skip undefined/null) instead of calling a getter that
+	// panics, such as Value.Float on a missing number. This does not
+	// change the Go field type.
+	Optional []string `yaml:"optional"`
 
 	// Path is the source file this was loaded from, for error messages.
 	Path string `yaml:"-"`
@@ -228,6 +234,14 @@ func (o *Overrides) Validate(doc *ir.IR) error {
 	for _, k := range o.Exclude {
 		if err := checkDeclOrMember(k); err != nil {
 			return err
+		}
+	}
+	for _, k := range o.Optional {
+		if err := checkDeclOrMember(k); err != nil {
+			return err
+		}
+		if !strings.Contains(k, ".") {
+			return fmt.Errorf("%s: optional: %q must be a \"Decl.member\" key", o.Path, k)
 		}
 	}
 	return nil

@@ -214,7 +214,9 @@ func incomingRequestCFPropertiesFromJS(v js.Value) (IncomingRequestCFProperties,
 		out.BotManagement = v.Get("botManagement")
 	}
 	{
-		out.ClientTrustScore = v.Get("clientTrustScore").Float()
+		if s := v.Get("clientTrustScore"); !s.IsUndefined() && !s.IsNull() {
+			out.ClientTrustScore = s.Float()
+		}
 	}
 	{
 		if s := v.Get("hostMetadata"); !s.IsUndefined() && !s.IsNull() {
@@ -535,7 +537,9 @@ func incomingRequestCFPropertiesBotManagementFromJS(v js.Value) (IncomingRequest
 		}
 	}
 	{
-		out.ClientTrustScore = v.Get("clientTrustScore").Float()
+		if s := v.Get("clientTrustScore"); !s.IsUndefined() && !s.IsNull() {
+			out.ClientTrustScore = s.Float()
+		}
 	}
 	return out, nil
 }
@@ -637,7 +641,9 @@ func incomingRequestCFPropertiesBotManagementEnterpriseFromJS(v js.Value) (Incom
 		}
 	}
 	{
-		out.ClientTrustScore = v.Get("clientTrustScore").Float()
+		if s := v.Get("clientTrustScore"); !s.IsUndefined() && !s.IsNull() {
+			out.ClientTrustScore = s.Float()
+		}
 	}
 	return out, nil
 }

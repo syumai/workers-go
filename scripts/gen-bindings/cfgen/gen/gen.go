@@ -729,7 +729,7 @@ func (p *Package) genDataFromJS(sb *strings.Builder, d *ir.Decl, structName stri
 			// (pointerWrap/nilGuardWrap, from fieldConv's nested-data-type
 			// pointer treatment); an outer guard would just be redundant.
 			block = conv.FromJS("out."+fieldName, jsGet, failReturn)
-		case m.Optional || isNullableType(m.Type):
+		case m.Optional || isNullableType(m.Type) || p.isForcedOptional(d.Name, m.Name):
 			block = append(block, "if s := "+jsGet+"; !s.IsUndefined() && !s.IsNull() {")
 			block = append(block, indentAll(conv.FromJS("out."+fieldName, "s", failReturn))...)
 			block = append(block, "}")

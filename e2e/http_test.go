@@ -29,6 +29,45 @@ type cfPropsResponse struct {
 	Colo string
 }
 
+// cfExpResponse mirrors testdata/workers/kitchensink/cfexp.go. Geo and ASN
+// values come from workerd's cf.json lookup for this machine's address.
+// The test checks coarse fields that lookup fills anywhere, and only
+// checks that finer fields decoded as plain strings: metroCode is a US
+// DMA code, and city, region, regionCode, and postalCode are absent for
+// some addresses.
+type cfExpResponse struct {
+	ASN                         float64 `json:"asn"`
+	AsOrganization              string  `json:"asOrganization"`
+	ClientTcpRtt                float64 `json:"clientTcpRtt"`
+	Colo                        string  `json:"colo"`
+	EdgeRequestKeepAliveStatus  int     `json:"edgeRequestKeepAliveStatus"`
+	HTTPProtocol                string  `json:"httpProtocol"`
+	RequestPriority             string  `json:"requestPriority"`
+	TLSVersion                  string  `json:"tlsVersion"`
+	TLSCipher                   string  `json:"tlsCipher"`
+	ClientTrustScore            float64 `json:"clientTrustScore"`
+	Country                     string  `json:"country"`
+	IsEUCountry                 string  `json:"isEUCountry"`
+	Continent                   string  `json:"continent"`
+	City                        string  `json:"city"`
+	PostalCode                  string  `json:"postalCode"`
+	Latitude                    string  `json:"latitude"`
+	Longitude                   string  `json:"longitude"`
+	Timezone                    string  `json:"timezone"`
+	Region                      string  `json:"region"`
+	RegionCode                  string  `json:"regionCode"`
+	MetroCode                   string  `json:"metroCode"`
+	HasTLSExportedAuthenticator bool    `json:"hasTlsExportedAuthenticator"`
+	TLSClientHandshake          string  `json:"tlsClientHandshake"`
+	HasBotManagement            bool    `json:"hasBotManagement"`
+	HasBotManagementScore       bool    `json:"hasBotManagementScore"`
+	BotManagementScore          float64 `json:"botManagementScore"`
+	HasHostMetadata             bool    `json:"hasHostMetadata"`
+	HasTLSClientAuth            bool    `json:"hasTlsClientAuth"`
+	TLSClientAuthCertPresented  string  `json:"tlsClientAuthCertPresented"`
+	TLSClientAuthCertVerified   string  `json:"tlsClientAuthCertVerified"`
+}
+
 // waitUntilPollTimeout bounds how long the waituntil/runs_after_response
 // subtest polls GET /waituntil/result for the deferred write to land.
 const waitUntilPollTimeout = 5 * time.Second
@@ -171,6 +210,8 @@ func TestKitchenSink(t *testing.T) {
 		}
 	})
 
+	t.Run("cfexp/from_request", testCFExpFromRequest(w))
+
 	t.Run("cf/has_colo_or_error", func(t *testing.T) {
 		resp, body := w.Get(t, "/cf")
 		switch resp.StatusCode {
@@ -233,6 +274,115 @@ func TestKitchenSink(t *testing.T) {
 	t.Run("queue/roundtrip", testQueueRoundtrip(w))
 
 	t.Run("cron/fires", testCronFires(w))
+}
+
+// testCFExpFromRequest checks exp/cloudflare/cf.FromRequest against the cf
+// object wrangler dev (workerd) actually attaches to a local fetch.
+// Fields that only exist on the production edge (Cloudflare for SaaS
+// hostMetadata, a Bot Management clientTrustScore) are asserted absent.
+// Coarse geo fields are asserted present but not equal to a particular
+// colo: workerd fills them from a cf.json lookup for the machine's
+// address. Finer fields (city, region, postalCode, metroCode) and
+// clientTcpRtt are location- or network-dependent and may be empty or 0.
+func testCFExpFromRequest(w *worker) func(*testing.T) {
+	return func(t *testing.T) {
+		resp, body := w.Get(t, "/cfexp")
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("status = %d, want %d (body = %q)", resp.StatusCode, http.StatusOK, body)
+		}
+		var got cfExpResponse
+		if err := json.Unmarshal([]byte(body), &got); err != nil {
+			t.Fatalf("failed to unmarshal /cfexp response %q: %v", body, err)
+		}
+
+		// Stable for a local HTTP/1.1 request with no upstream.
+		if got.HTTPProtocol != "HTTP/1.1" {
+			t.Errorf("httpProtocol = %q, want %q", got.HTTPProtocol, "HTTP/1.1")
+		}
+		if got.RequestPriority != "" {
+			t.Errorf("requestPriority = %q, want empty", got.RequestPriority)
+		}
+		if got.EdgeRequestKeepAliveStatus != 1 {
+			t.Errorf("edgeRequestKeepAliveStatus = %d, want 1", got.EdgeRequestKeepAliveStatus)
+		}
+		// No Bot Management add-on locally, so the deprecated duplicate
+		// score is omitted and decodes as 0. The botManagement object
+		// itself is still present.
+		if got.ClientTrustScore != 0 {
+			t.Errorf("clientTrustScore = %v, want 0", got.ClientTrustScore)
+		}
+		if !got.HasBotManagement || !got.HasBotManagementScore {
+			t.Errorf("botManagement missing (has=%v scorePresent=%v)", got.HasBotManagement, got.HasBotManagementScore)
+		}
+		if got.BotManagementScore <= 0 || got.BotManagementScore > 99 {
+			t.Errorf("botManagement.score = %v, want in (0, 99]", got.BotManagementScore)
+		}
+		// workers-types: "1" in the EU, omitted otherwise. workerd sends a
+		// boolean; FromJS must not surface the syscall/js debug string.
+		if got.IsEUCountry != "" && got.IsEUCountry != "1" {
+			t.Errorf("isEUCountry = %q, want \"\" or \"1\"", got.IsEUCountry)
+		}
+		if got.HasHostMetadata {
+			t.Errorf("hostMetadata is set; local dev has no Cloudflare for SaaS metadata")
+		}
+
+		// Placeholder client-cert object workerd attaches when no mTLS
+		// cert was presented.
+		if !got.HasTLSClientAuth {
+			t.Error("tlsClientAuth missing")
+		}
+		if got.TLSClientAuthCertPresented != "0" {
+			t.Errorf("tlsClientAuth.certPresented = %q, want %q", got.TLSClientAuthCertPresented, "0")
+		}
+		if got.TLSClientAuthCertVerified != "NONE" {
+			t.Errorf("tlsClientAuth.certVerified = %q, want %q", got.TLSClientAuthCertVerified, "NONE")
+		}
+		if !got.HasTLSExportedAuthenticator || got.TLSClientHandshake == "" {
+			t.Errorf("tlsExportedAuthenticator.clientHandshake missing (has=%v handshake=%q)", got.HasTLSExportedAuthenticator, got.TLSClientHandshake)
+		}
+
+		// Present for any address workerd can resolve. Values themselves
+		// still depend on where the test runs.
+		nonEmpty := map[string]string{
+			"colo":           got.Colo,
+			"country":        got.Country,
+			"continent":      got.Continent,
+			"timezone":       got.Timezone,
+			"latitude":       got.Latitude,
+			"longitude":      got.Longitude,
+			"asOrganization": got.AsOrganization,
+			"tlsVersion":     got.TLSVersion,
+			"tlsCipher":      got.TLSCipher,
+		}
+		for name, value := range nonEmpty {
+			if value == "" {
+				t.Errorf("%s is empty", name)
+			}
+		}
+		// Not always known: metroCode is a US DMA code, and city, region,
+		// regionCode, and postalCode are missing for some addresses. A
+		// syscall/js debug string ("<undefined>", "<boolean: …>") would
+		// mean the decoder mishandled the JS value.
+		optionalGeo := map[string]string{
+			"city":       got.City,
+			"region":     got.Region,
+			"regionCode": got.RegionCode,
+			"postalCode": got.PostalCode,
+			"metroCode":  got.MetroCode,
+		}
+		for name, value := range optionalGeo {
+			if strings.HasPrefix(value, "<") {
+				t.Errorf("%s = %q, want a plain string or empty", name, value)
+			}
+		}
+		if got.ASN == 0 {
+			t.Error("asn = 0, want the cf.json lookup's ASN")
+		}
+		// 0 is a real measurement (idle or unmeasured path), not a missing field.
+		if got.ClientTcpRtt < 0 {
+			t.Errorf("clientTcpRtt = %v, want >= 0", got.ClientTcpRtt)
+		}
+	}
 }
 
 func equalStringSlices(a, b []string) bool {
