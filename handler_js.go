@@ -40,8 +40,35 @@ func handleRequest(reqObj js.Value) (js.Value, error) {
 		return js.Value{}, fmt.Errorf("Serve must be called before handleRequest.")
 	}
 	return jshttp.ServeRequest(httpHandler, reqObj, func() {
-		doneOnce.Do(func() { close(doneCh) })
+		// Null-body statuses (204/205/304) close the response body from
+		// inside newJSResponse, which runs on this handler's goroutine
+		// while RegisterAsyncHandler is still inside the `new Promise`
+		// (syscall/js.valueNew) that delivers the Response. Closing
+		// doneCh here lets main return and wasmExit delete the instance
+		// before that valueNew reads this._inst.exports — the
+		// "Cannot read properties of undefined (reading 'exports')"
+		// failure. A macrotask runs only after that stack, and the
+		// caller's promise reactions, have unwound.
+		scheduleAfterTurn(func() {
+			doneOnce.Do(func() { close(doneCh) })
+		})
 	})
+}
+
+// scheduleAfterTurn runs fn in a later JavaScript turn (setTimeout 0).
+// The callback releases its own js.Func before calling fn, so fn may let
+// the program exit without a further syscall touching the instance.
+func scheduleAfterTurn(fn func()) {
+	var cb js.Func
+	cb = js.FuncOf(func(js.Value, []js.Value) any {
+		cb.Release()
+		fn()
+		return nil
+	})
+	// Call would bind `this` to Go's global proxy; workerd then rejects
+	// setTimeout with "Illegal invocation". Invoke calls it as a free
+	// function, which is the form that runtime allows.
+	js.Global().Get("setTimeout").Invoke(cb, 0)
 }
 
 // Serve serves http.Handler on a JS runtime.

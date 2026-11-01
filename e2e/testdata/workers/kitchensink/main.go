@@ -59,6 +59,10 @@ func main() {
 	mux.HandleFunc("/queue/received", handleQueueReceived)
 	mux.HandleFunc("/waituntil", handleWaitUntil)
 	mux.HandleFunc("/waituntil/result", handleWaitUntilResult)
+	mux.HandleFunc("/issue101/empty", handleIssue101Empty)
+	mux.HandleFunc("/issue101/nobody", handleIssue101Nobody)
+	mux.HandleFunc("/issue163", handleIssue163)
+	mux.HandleFunc("/issue163/result", handleIssue163Result)
 
 	workers.ServeNonBlock(mux)
 	queues.ConsumeNonBlock(consumeQueue)
