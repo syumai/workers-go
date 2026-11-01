@@ -41,5 +41,11 @@
   },
   "triggers": {
     "crons": ["* * * * *"]
+  },
+  "ai": {
+    "binding": "AI"
+  },
+  "images": {
+    "binding": "IMAGES"
   }
 }

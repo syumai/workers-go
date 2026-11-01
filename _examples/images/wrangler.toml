@@ -1,0 +1,13 @@
+name = "workers-go-images"
+main = "./build/worker.mjs"
+compatibility_date = "2025-06-01"
+
+# The Images binding is accepted on a temporary Cloudflare account. Local
+# `wrangler dev` may still proxy transform/info to Cloudflare; if it does,
+# log in first (wrangler login, or CLOUDFLARE_API_TOKEN plus
+# CLOUDFLARE_ACCOUNT_ID).
+[images]
+binding = "IMAGES"
+
+[build]
+command = "make build"
