@@ -1144,8 +1144,14 @@ func (x *R2MultipartUpload) UploadID() string {
 }
 
 // UploadPart
-func (x *R2MultipartUpload) UploadPart(partNumber float64, value js.Value, options R2UploadPartOptions) (R2UploadedPart, error) {
-	p, err := jsrt.Call(x.v, "uploadPart", partNumber, value, options.toJS())
+func (x *R2MultipartUpload) UploadPart(partNumber float64, value io.Reader, options R2UploadPartOptions) (R2UploadedPart, error) {
+	var err error
+	var arg1 js.Value
+	arg1, err = jsrt.ArrayBufferFromReader(value)
+	if err != nil {
+		return R2UploadedPart{}, err
+	}
+	p, err := jsrt.Call(x.v, "uploadPart", partNumber, arg1, options.toJS())
 	if err != nil {
 		return R2UploadedPart{}, err
 	}

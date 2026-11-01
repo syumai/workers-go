@@ -78,6 +78,14 @@ type exprConv struct {
 	// js.Value.Set/SetIndex accept any type js.ValueOf supports).
 	ToJS func(src string) (pre []string, expr string)
 
+	// ToJSErr, when set, is used instead of ToJS for a method parameter.
+	// It returns a call expression of type (js.Value, error). The method
+	// generator assigns that result and returns the error to the caller.
+	// This is how a types: override can keep a Go parameter as io.Reader
+	// while still failing the call when the reader cannot be buffered.
+	// It is only supported on method parameters, not on struct fields.
+	ToJSErr func(src string) string
+
 	// ZeroExpr is a Go expression for this type's zero value, used as the
 	// failReturn placeholder by callers and (for data types) as the
 	// zero-value literal for the enclosing function's own type.
@@ -892,6 +900,23 @@ func readerParamConv() exprConv {
 	}
 }
 
+// readerAsArrayBufferConv keeps the Go parameter as io.Reader, like
+// readerParamConv, but reads it to completion and passes a JS ArrayBuffer.
+// workerd's R2 uploadPart rejects a ReadableStream that does not already
+// know its length ("must have a known length"); an ArrayBuffer always does.
+// ToJS panics if this conversion is used outside a method parameter: the
+// read can fail, and only a method can return that error.
+func readerAsArrayBufferConv() exprConv {
+	c := readerParamConv()
+	c.ToJS = func(string) ([]string, string) {
+		panic("types override io.ReaderAsArrayBuffer is only supported on method parameters")
+	}
+	c.ToJSErr = func(src string) string {
+		return "jsrt.ArrayBufferFromReader(" + src + ")"
+	}
+	return c
+}
+
 // writeCloserConv is the return/property-position mapping for a
 // WritableStream type (tmp/06-codegen-spec.md 3.1.1): FromJS wraps the JS
 // value as an io.WriteCloser via jsrt.WriteCloser.
@@ -1386,6 +1411,12 @@ func (p *Package) namedTypeConv(override string) (exprConv, error) {
 		p.useImport("jsrt")
 		p.useImport("io")
 		return readerParamConv(), nil
+	case "io.ReaderAsArrayBuffer":
+		// Same Go type as io.Reader. The method generator reads the
+		// reader and passes an ArrayBuffer instead of a ReadableStream.
+		p.useImport("jsrt")
+		p.useImport("io")
+		return readerAsArrayBufferConv(), nil
 	case "http.Header":
 		// tmp/06-codegen-spec.md 5.1 item 4: lets a "types:" override pick
 		// the Headers side of a union cfgen can't otherwise resolve on

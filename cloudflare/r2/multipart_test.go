@@ -3,6 +3,8 @@
 package r2
 
 import (
+	"errors"
+	"io"
 	"strings"
 	"syscall/js"
 	"testing"
@@ -16,8 +18,8 @@ func resolve(v any) js.Value {
 
 // TestMultipartUpload_UploadPart verifies UploadPart passes the requested
 // partNumber through and sends the io.Reader's bytes as an ArrayBuffer.
-// workerd rejects a ReadableStream without a known length, so the L2
-// wrapper does not use ReadableStreamFromReader here. The decoded
+// The generated binding reads the reader to completion because workerd
+// rejects a ReadableStream without a known length. The decoded
 // *UploadedPart carries back the fake's partNumber/etag.
 func TestMultipartUpload_UploadPart(t *testing.T) {
 	var gotPartNumber int
@@ -62,5 +64,63 @@ func TestMultipartUpload_UploadPart(t *testing.T) {
 	}
 	if part.ETag != "etag-part-1" {
 		t.Errorf("part.ETag = %q, want %q", part.ETag, "etag-part-1")
+	}
+}
+
+type errReader struct{ err error }
+
+func (r errReader) Read([]byte) (int, error) { return 0, r.err }
+
+// TestMultipartUpload_UploadPart_readError verifies a reader failure is
+// returned and does not call uploadPart.
+func TestMultipartUpload_UploadPart_readError(t *testing.T) {
+	called := false
+	fake := js.ValueOf(map[string]any{
+		"key":      "my-key",
+		"uploadId": "upload-1",
+	})
+	fake.Set("uploadPart", js.FuncOf(func(this js.Value, args []js.Value) any {
+		called = true
+		return resolve(map[string]any{"partNumber": 1, "etag": "unused"})
+	}))
+
+	upload := toMultipartUpload(r2js.R2MultipartUploadFromJS(fake))
+	want := errors.New("read failed")
+	_, err := upload.UploadPart(1, errReader{err: want})
+	if !errors.Is(err, want) {
+		t.Fatalf("UploadPart() error = %v, want %v", err, want)
+	}
+	if called {
+		t.Fatal("uploadPart was called after the reader failed")
+	}
+}
+
+// closerReader records whether Close ran, so the generated binding's
+// ArrayBuffer conversion is checked for closing an io.Closer.
+type closerReader struct {
+	io.Reader
+	closed bool
+}
+
+func (c *closerReader) Close() error {
+	c.closed = true
+	return nil
+}
+
+func TestMultipartUpload_UploadPart_closesReader(t *testing.T) {
+	fake := js.ValueOf(map[string]any{
+		"key":      "my-key",
+		"uploadId": "upload-1",
+	})
+	fake.Set("uploadPart", js.FuncOf(func(this js.Value, args []js.Value) any {
+		return resolve(map[string]any{"partNumber": 1, "etag": "etag"})
+	}))
+	body := &closerReader{Reader: strings.NewReader("x")}
+	upload := toMultipartUpload(r2js.R2MultipartUploadFromJS(fake))
+	if _, err := upload.UploadPart(1, body); err != nil {
+		t.Fatalf("UploadPart() failed: %v", err)
+	}
+	if !body.closed {
+		t.Fatal("UploadPart() did not close the reader")
 	}
 }

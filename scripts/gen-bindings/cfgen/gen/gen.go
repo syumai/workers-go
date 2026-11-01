@@ -331,6 +331,7 @@ func (p *Package) genMethod(sb *strings.Builder, d *ir.Decl, structName string, 
 	var params []string
 	var argExprs []string
 	var argBlocks [][]string
+	var fallibleArgs []fallibleArg
 	// restExpr, if non-empty, is a Go slice expression (the rest parameter
 	// itself, or a built []any) spread as the final jsrt.Call argument via
 	// "restExpr...". Set by the ir.Param.Rest case below; per
@@ -384,6 +385,16 @@ func (p *Package) genMethod(sb *strings.Builder, d *ir.Decl, structName string, 
 			return err
 		}
 		params = append(params, pname+" "+conv.GoType)
+		if conv.ToJSErr != nil {
+			// A fallible conversion (io.ReaderAsArrayBuffer) cannot be
+			// inlined into jsrt.Call: the read error has to be returned
+			// from this method. The call expression is emitted once the
+			// return type's zero value is known.
+			argVar := fmt.Sprintf("arg%d", i)
+			fallibleArgs = append(fallibleArgs, fallibleArg{name: argVar, call: conv.ToJSErr(pname)})
+			argExprs = append(argExprs, argVar)
+			continue
+		}
 		pre, expr := conv.ToJS(pname)
 		if len(pre) == 0 {
 			argExprs = append(argExprs, expr)
@@ -471,11 +482,16 @@ func (p *Package) genMethod(sb *strings.Builder, d *ir.Decl, structName string, 
 
 	if isVoid {
 		fmt.Fprintf(sb, "func (x *%s) %s(%s) error {\n", structName, goName, strings.Join(params, ", "))
+		writeFallibleArgs(sb, fallibleArgs, "")
 		for _, b := range argBlocks {
 			sb.WriteString(indentBlock(b, 1))
 		}
 		if isAsync {
 			sb.WriteString("\tp, err := jsrt.Call(" + callArgs + ")\n\tif err != nil {\n\t\treturn err\n\t}\n\t_, err = jsrt.Await(p)\n\treturn err\n")
+		} else if len(fallibleArgs) > 0 {
+			// err is already declared by the reader conversion. "_" is not
+			// a new variable, so ":=" would not compile.
+			sb.WriteString("\t_, err = jsrt.Call(" + callArgs + ")\n\treturn err\n")
 		} else {
 			sb.WriteString("\t_, err := jsrt.Call(" + callArgs + ")\n\treturn err\n")
 		}
@@ -484,6 +500,7 @@ func (p *Package) genMethod(sb *strings.Builder, d *ir.Decl, structName string, 
 	}
 
 	fmt.Fprintf(sb, "func (x *%s) %s(%s) (%s, error) {\n", structName, goName, strings.Join(params, ", "), conv.GoType)
+	writeFallibleArgs(sb, fallibleArgs, conv.ZeroExpr)
 	for _, b := range argBlocks {
 		sb.WriteString(indentBlock(b, 1))
 	}
@@ -759,6 +776,9 @@ func (p *Package) genDataToJS(sb *strings.Builder, d *ir.Decl, structName string
 		if err != nil {
 			return err
 		}
+		if conv.ToJSErr != nil {
+			return fmt.Errorf("%s.%s: this types override can only be used on a method parameter", d.Name, m.Name)
+		}
 		srcExpr := "o." + fieldName
 		pre, valueExpr := conv.ToJS(srcExpr)
 		cond := conv.OmitIfZero(srcExpr)
@@ -801,6 +821,29 @@ func (p *Package) genAliasType(sb *strings.Builder, d *ir.Decl) error {
 	docComment(sb, d.Doc, name)
 	fmt.Fprintf(sb, "type %s = %s\n\n", name, conv.GoType)
 	return nil
+}
+
+// fallibleArg is a method argument whose Go-to-JS conversion returns
+// (js.Value, error), emitted before jsrt.Call.
+type fallibleArg struct {
+	name string
+	call string
+}
+
+func writeFallibleArgs(sb *strings.Builder, args []fallibleArg, failReturn string) {
+	if len(args) == 0 {
+		return
+	}
+	sb.WriteString("\tvar err error\n")
+	for _, a := range args {
+		fmt.Fprintf(sb, "\tvar %s js.Value\n", a.name)
+		fmt.Fprintf(sb, "\t%s, err = %s\n", a.name, a.call)
+		if failReturn == "" {
+			sb.WriteString("\tif err != nil {\n\t\treturn err\n\t}\n")
+			continue
+		}
+		fmt.Fprintf(sb, "\tif err != nil {\n\t\treturn %s, err\n\t}\n", failReturn)
+	}
 }
 
 func indentBlock(lines []string, level int) string {
