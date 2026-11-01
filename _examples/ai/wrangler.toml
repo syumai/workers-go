@@ -1,0 +1,12 @@
+name = "workers-go-ai"
+main = "./build/worker.mjs"
+compatibility_date = "2025-06-01"
+
+# Local `wrangler dev` proxies this binding to the Workers AI API, so the
+# process needs a logged-in account (wrangler login, or CLOUDFLARE_API_TOKEN
+# plus CLOUDFLARE_ACCOUNT_ID). The call does not stay inside workerd.
+[ai]
+binding = "AI"
+
+[build]
+command = "make build"

@@ -46,6 +46,8 @@ func main() {
 	mux.HandleFunc("/cfexp", handleCFExp)
 	mux.HandleFunc("/versions", handleVersions)
 	mux.HandleFunc("/ratelimit", handleRateLimit)
+	mux.HandleFunc("/ai", handleAI)
+	mux.HandleFunc("/images", handleImages)
 	mux.HandleFunc("/stream", handleStream)
 	mux.HandleFunc("/fixed", handleFixed)
 	mux.HandleFunc("/env/", handleEnv)

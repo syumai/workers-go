@@ -3,8 +3,10 @@
 // Package e2e drives Worker fixtures under wrangler dev (real workerd) to
 // check behavior that Node-based fake-JS tests cannot: the actual shape of
 // worker.mjs/app.wasm wiring, KV's real API surface, streaming responses,
-// FixedLengthStream, and exp/cloudflare/cf.FromRequest against workerd's
-// request.cf object. See tmp/test-plan/04-wrangler-e2e.md for the design
+// FixedLengthStream, exp/cloudflare/cf.FromRequest against workerd's
+// request.cf object, the Images binding, and Workers AI (skipped when
+// local wrangler has no Cloudflare account, because that binding has no
+// local simulator). See tmp/test-plan/04-wrangler-e2e.md for the design
 // this package implements.
 package e2e
 

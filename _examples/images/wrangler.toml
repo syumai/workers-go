@@ -1,0 +1,11 @@
+name = "workers-go-images"
+main = "./build/worker.mjs"
+compatibility_date = "2025-06-01"
+
+# Local wrangler dev simulates this binding inside workerd (no account).
+# `wrangler deploy --temporary` also accepts it on a temporary account.
+[images]
+binding = "IMAGES"
+
+[build]
+command = "make build"
