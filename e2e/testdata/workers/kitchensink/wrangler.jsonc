@@ -42,9 +42,9 @@
   "triggers": {
     "crons": ["* * * * *"]
   },
-  "ai": {
-    "binding": "AI"
-  },
+  // Images is simulated inside workerd. Workers AI is not: that binding
+  // always opens a remote proxy and is configured in wrangler.ai.jsonc so
+  // a missing account does not stop this dev session.
   "images": {
     "binding": "IMAGES"
   }

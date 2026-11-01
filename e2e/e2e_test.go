@@ -4,9 +4,10 @@
 // check behavior that Node-based fake-JS tests cannot: the actual shape of
 // worker.mjs/app.wasm wiring, KV's real API surface, streaming responses,
 // FixedLengthStream, exp/cloudflare/cf.FromRequest against workerd's
-// request.cf object, and the Workers AI and Images bindings (those two
-// skip when local wrangler has no Cloudflare account). See
-// tmp/test-plan/04-wrangler-e2e.md for the design this package implements.
+// request.cf object, the Images binding, and Workers AI (skipped when
+// local wrangler has no Cloudflare account, because that binding has no
+// local simulator). See tmp/test-plan/04-wrangler-e2e.md for the design
+// this package implements.
 package e2e
 
 import (

@@ -1,0 +1,8 @@
+{
+  "name": "kitchensink-ai",
+  "main": "./build/worker.mjs",
+  "compatibility_date": "2025-06-01",
+  "ai": {
+    "binding": "AI"
+  }
+}

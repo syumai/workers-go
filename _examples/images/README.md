@@ -1,22 +1,21 @@
 # images
 
-Reads and resizes an embedded 1×1 PNG with the
+Reads and resizes an embedded 32×32 PNG with the
 [Images binding](https://developers.cloudflare.com/images/transform-images/bindings/)
 through [`exp/cloudflare/images`](https://github.com/syumai/workers-go/tree/main/exp/cloudflare/images).
 
 `GET /` does two things:
 
-1. `ImagesBinding.Info` on the embedded PNG (format, width, height, file size).
+1. `ImagesBinding.Info` on an embedded 32×32 PNG (format, width, height, file size).
 2. `Input` → `Transform` (width 8) → `Output` (`image/png`) → `HTTPResponse`,
    then `Info` again on those bytes.
 
 No image is fetched from the network. The handler returns JSON metadata, not
 the PNG body.
 
-A temporary Cloudflare account accepts the `[images]` binding. `Info` on a
-1×1 PNG has been checked there. Local `wrangler dev` may implement Images
-inside workerd, or it may proxy to Cloudflare the way the AI binding does.
-If a request fails with an authentication error, log in and retry.
+Local `wrangler dev` runs the Images binding inside workerd, so `make dev`
+does not need a Cloudflare account. A temporary account also accepts the
+`[images]` binding; `Info` on a small PNG has been checked there.
 
 ## Requirements
 
@@ -26,9 +25,6 @@ If a request fails with an authentication error, log in and retry.
 ## Run locally
 
 ```sh
-wrangler login
-# or export CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID
-
 make dev
 curl -sS http://127.0.0.1:8787/
 ```
@@ -38,9 +34,9 @@ A working response looks like:
 ```json
 {
   "format": "image/png",
-  "width": 1,
-  "height": 1,
-  "fileSize": 69,
+  "width": 32,
+  "height": 32,
+  "fileSize": 109,
   "contentType": "image/png",
   "resizedBytes": 80,
   "resizedWidth": 8,
@@ -48,7 +44,7 @@ A working response looks like:
 }
 ```
 
-`format` should name a PNG, the source size should be 1×1, and
+`format` should name a PNG, the source size should be 32×32, and
 `resizedWidth` should be 8. Byte counts can differ from the numbers above.
 
 ## Deploy to a temporary account

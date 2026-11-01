@@ -211,7 +211,6 @@ func TestKitchenSink(t *testing.T) {
 	})
 
 	t.Run("cfexp/from_request", testCFExpFromRequest(w))
-	t.Run("ai/embeddings", testAIEmbeddings(w))
 	t.Run("images/info_resize", testImagesInfoResize(w))
 
 	t.Run("cf/has_colo_or_error", func(t *testing.T) {

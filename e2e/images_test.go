@@ -42,8 +42,8 @@ func testImagesInfoResize(w *worker) func(t *testing.T) {
 		if !strings.Contains(strings.ToLower(got.Format), "png") {
 			t.Errorf("format = %q, want a png format", got.Format)
 		}
-		if got.Width != 1 || got.Height != 1 {
-			t.Errorf("info size = %v×%v, want 1×1", got.Width, got.Height)
+		if got.Width != 32 || got.Height != 32 {
+			t.Errorf("info size = %v×%v, want 32×32", got.Width, got.Height)
 		}
 		if got.FileSize <= 0 {
 			t.Errorf("fileSize = %v, want > 0", got.FileSize)

@@ -17,11 +17,17 @@ type aiResponse struct {
 	Shape  []float64 `json:"shape"`
 }
 
-func testAIEmbeddings(w *worker) func(t *testing.T) {
-	return func(t *testing.T) {
-		if testing.Short() {
-			t.Skip("skipping e2e test in short mode")
-		}
+// TestAIEmbeddings starts the kitchensink wasm with wrangler.ai.jsonc.
+// The AI binding has no local simulator, so wrangler opens a remote proxy
+// before it is ready. Without CLOUDFLARE_API_TOKEN that startup fails and
+// the test skips. With an account, GET /ai must return a positive
+// embedding length for @cf/baai/bge-base-en-v1.5.
+func TestAIEmbeddings(t *testing.T) {
+	w := startWranglerWith(t, "kitchensink", wranglerOptions{
+		configName:       "wrangler.ai.jsonc",
+		skipOnRemoteAuth: true,
+	})
+	t.Run("embeddings", func(t *testing.T) {
 		// The first remote Workers AI call can sit behind a cold proxy.
 		restore := extendClientTimeout(w, 45*time.Second)
 		defer restore()
@@ -45,7 +51,22 @@ func testAIEmbeddings(w *worker) func(t *testing.T) {
 		if len(got.Shape) >= 2 && int(got.Shape[len(got.Shape)-1]) != got.Length {
 			t.Errorf("shape %v last dim = %v, want length %d", got.Shape, got.Shape[len(got.Shape)-1], got.Length)
 		}
+	})
+}
+
+// remoteBindingStartupUnavailable reports whether wrangler's own log shows
+// that dev exited because a remote binding had no Cloudflare credentials.
+func remoteBindingStartupUnavailable(logs string) bool {
+	return remoteBindingUnavailable(http.StatusBadGateway, logs) ||
+		strings.Contains(strings.ToLower(logs), "remote proxy")
+}
+
+func trimLog(s string) string {
+	s = strings.TrimSpace(s)
+	if len(s) > 800 {
+		return s[len(s)-800:]
 	}
+	return s
 }
 
 // extendClientTimeout raises the shared worker client's timeout for one

@@ -52,12 +52,29 @@ func freePort(t *testing.T) int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
+// wranglerOptions configures one `wrangler dev` process.
+type wranglerOptions struct {
+	// configName is the file under testdata/workers/<fixture>/. Empty
+	// means wrangler.jsonc.
+	configName string
+	// skipOnRemoteAuth skips the test when wrangler exits during startup
+	// because a binding proxies to Cloudflare and no account is configured.
+	// The Workers AI binding does this: it has no local simulator, so
+	// `wrangler dev` opens a remote proxy session before it is ready.
+	skipOnRemoteAuth bool
+}
+
 // startWrangler starts `wrangler dev` for the fixture under
 // testdata/workers/<fixture>/wrangler.jsonc, waits for it to become ready,
 // and registers a t.Cleanup that stops it (SIGTERM, escalating to SIGKILL
 // after 5s). The fixture's build/ directory must already exist (TestMain
 // builds every fixture before any test runs).
 func startWrangler(t *testing.T, fixture string) *worker {
+	t.Helper()
+	return startWranglerWith(t, fixture, wranglerOptions{})
+}
+
+func startWranglerWith(t *testing.T, fixture string, opts wranglerOptions) *worker {
 	t.Helper()
 	if testing.Short() {
 		t.Skip("skipping wrangler e2e test in short mode")
@@ -67,7 +84,11 @@ func startWrangler(t *testing.T, fixture string) *worker {
 	if err != nil {
 		t.Fatalf("failed to get working directory: %v", err)
 	}
-	configPath := filepath.Join(e2eDir, "testdata", "workers", fixture, "wrangler.jsonc")
+	configName := opts.configName
+	if configName == "" {
+		configName = "wrangler.jsonc"
+	}
+	configPath := filepath.Join(e2eDir, "testdata", "workers", fixture, configName)
 	if _, err := os.Stat(configPath); err != nil {
 		t.Fatalf("fixture config not found: %s: %v", configPath, err)
 	}
@@ -87,7 +108,7 @@ func startWrangler(t *testing.T, fixture string) *worker {
 		"--log-level", "info",
 	}
 
-	return runWrangler(t, "pnpm", e2eDir, args, httpPort, "/healthz")
+	return runWrangler(t, "pnpm", e2eDir, args, httpPort, "/healthz", opts.skipOnRemoteAuth)
 }
 
 // startWranglerPages starts `wrangler pages dev` for the fixture under
@@ -138,14 +159,14 @@ func startWranglerPages(t *testing.T, fixture string) *worker {
 		"--log-level", "info",
 	}
 
-	return runWrangler(t, wranglerBin, fixtureDir, args, httpPort, "/api/healthz")
+	return runWrangler(t, wranglerBin, fixtureDir, args, httpPort, "/api/healthz", false)
 }
 
 // runWrangler starts `cmdName ...args` in dir, waits for it to report
 // readiness (either a "Ready on http://" log line or a 200 from
 // healthzPath), and registers a t.Cleanup that stops it (SIGTERM,
 // escalating to SIGKILL after 5s).
-func runWrangler(t *testing.T, cmdName, dir string, args []string, httpPort int, healthzPath string) *worker {
+func runWrangler(t *testing.T, cmdName, dir string, args []string, httpPort int, healthzPath string, skipOnRemoteAuth bool) *worker {
 	t.Helper()
 
 	cmd := exec.Command(cmdName, args...)
@@ -171,6 +192,10 @@ func runWrangler(t *testing.T, cmdName, dir string, args []string, httpPort int,
 	var readyOnce sync.Once
 	signalReady := func() { readyOnce.Do(func() { close(readyCh) }) }
 
+	var (
+		logMu  sync.Mutex
+		logBuf strings.Builder
+	)
 	var wg sync.WaitGroup
 	logLines := func(prefix string, r io.Reader) {
 		defer wg.Done()
@@ -179,6 +204,10 @@ func runWrangler(t *testing.T, cmdName, dir string, args []string, httpPort int,
 		for scanner.Scan() {
 			line := scanner.Text()
 			t.Logf("[%s] %s", prefix, line)
+			logMu.Lock()
+			logBuf.WriteString(line)
+			logBuf.WriteByte('\n')
+			logMu.Unlock()
 			if strings.Contains(line, "Ready on http://") {
 				signalReady()
 			}
@@ -188,20 +217,32 @@ func runWrangler(t *testing.T, cmdName, dir string, args []string, httpPort int,
 	go logLines("wrangler:stdout", stdout)
 	go logLines("wrangler:stderr", stderr)
 
-	waitDone := make(chan error, 1)
-	go func() { waitDone <- cmd.Wait() }()
+	// procDone is closed after Wait returns, so both the ready loop and
+	// Cleanup can receive from it. A one-shot error channel cannot: the
+	// ready loop used to consume the only send, and Cleanup then blocked
+	// forever on the same channel after wrangler had already exited.
+	procDone := make(chan struct{})
+	var exitErr error
+	go func() {
+		exitErr = cmd.Wait()
+		close(procDone)
+	}()
 
 	t.Cleanup(func() {
-		if cmd.Process != nil {
-			_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
-		}
 		select {
-		case <-waitDone:
-		case <-time.After(5 * time.Second):
+		case <-procDone:
+		default:
 			if cmd.Process != nil {
-				_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+				_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
 			}
-			<-waitDone
+			select {
+			case <-procDone:
+			case <-time.After(5 * time.Second):
+				if cmd.Process != nil {
+					_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+				}
+				<-procDone
+			}
 		}
 		wg.Wait()
 	})
@@ -247,8 +288,14 @@ func runWrangler(t *testing.T, cmdName, dir string, args []string, httpPort int,
 
 	select {
 	case <-readyCh:
-	case <-waitDone:
-		t.Fatalf("wrangler exited before becoming ready: %s", cmd.String())
+	case <-procDone:
+		logMu.Lock()
+		logs := logBuf.String()
+		logMu.Unlock()
+		if skipOnRemoteAuth && remoteBindingStartupUnavailable(logs) {
+			t.Skipf("skipping: wrangler dev exited before ready because a binding proxies to Cloudflare and this environment has no account: %s", trimLog(logs))
+		}
+		t.Fatalf("wrangler exited before becoming ready: %s\n%s\nexit: %v", cmd.String(), trimLog(logs), exitErr)
 	case <-time.After(wranglerReadyTimeout):
 		t.Fatalf("timed out after %s waiting for wrangler to become ready: %s", wranglerReadyTimeout, cmd.String())
 	}
