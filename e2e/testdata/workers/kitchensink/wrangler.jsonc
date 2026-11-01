@@ -42,6 +42,19 @@
   "triggers": {
     "crons": ["* * * * *"]
   },
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA"
+  },
+  "ratelimits": [
+    {
+      "name": "RATE_LIMITER",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 2,
+        "period": 10
+      }
+    }
+  ],
   // Images is simulated inside workerd. Workers AI is not: that binding
   // always opens a remote proxy and is configured in wrangler.ai.jsonc so
   // a missing account does not stop this dev session.

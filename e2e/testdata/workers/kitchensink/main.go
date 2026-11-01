@@ -44,6 +44,8 @@ func main() {
 	mux.HandleFunc("/echo", handleEcho)
 	mux.HandleFunc("/cf", handleCF)
 	mux.HandleFunc("/cfexp", handleCFExp)
+	mux.HandleFunc("/versions", handleVersions)
+	mux.HandleFunc("/ratelimit", handleRateLimit)
 	mux.HandleFunc("/ai", handleAI)
 	mux.HandleFunc("/images", handleImages)
 	mux.HandleFunc("/stream", handleStream)
