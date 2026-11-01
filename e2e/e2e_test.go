@@ -43,6 +43,7 @@ var fixtures = []fixture{
 	{name: "durableobject"},
 	{name: "sockets"},
 	{name: "pages"},
+	{name: "websocket"},
 	{name: "tinygo", tinygo: true},
 }
 

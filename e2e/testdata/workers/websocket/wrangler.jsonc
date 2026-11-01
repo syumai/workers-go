@@ -1,0 +1,10 @@
+{
+  "name": "websocket",
+  "main": "./build/worker.mjs",
+  // Before 2026-04-07 the runtime does not auto-reply to Close frames
+  // (web_socket_auto_reply_to_close). The flag below keeps that manual
+  // handshake even if a newer default would reply on its own, so this
+  // fixture still fails when Conn never calls WebSocket.close().
+  "compatibility_date": "2025-06-01",
+  "compatibility_flags": ["web_socket_manual_reply_to_close"]
+}
