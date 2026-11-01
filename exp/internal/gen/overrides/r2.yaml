@@ -32,10 +32,11 @@ types:
   R2Bucket.put.params.value: "js.Value"
   R2Bucket.delete.params.keys: "[]string"
   # value is (ReadableStream | ArrayBuffer | ArrayBufferView | string |
-  # Blob) in the .d.ts; narrowed to io.Reader (converted to a ReadableStream
-  # via jsrt.ReadableStreamFromReader) since the L2 cloudflare/r2 package
-  # always calls this with an io.Reader.
-  R2MultipartUpload.uploadPart.params.value: "io.Reader"
+  # Blob) in the .d.ts. It stays js.Value, like R2Bucket.put: workerd
+  # rejects a ReadableStream whose length is not known up front
+  # ("must have a known length"), so the L2 package reads the io.Reader
+  # and passes an ArrayBuffer instead of jsrt.ReadableStreamFromReader.
+  R2MultipartUpload.uploadPart.params.value: "js.Value"
   R2Object.size: "int"
   # R2ObjectBody inherits size from R2Object via handle-extends flattening,
   # but a types: override doesn't automatically follow along with it (it's

@@ -15,10 +15,10 @@ func resolve(v any) js.Value {
 }
 
 // TestMultipartUpload_UploadPart verifies UploadPart passes the requested
-// partNumber through and converts its io.Reader argument into a JS
-// ReadableStream (the parameter-position mapping cfgen gives
-// ReadableStream<...>, per tmp/06-codegen-spec.md 3.1.1), and that the
-// decoded *UploadedPart carries back the fake's partNumber/etag.
+// partNumber through and sends the io.Reader's bytes as an ArrayBuffer.
+// workerd rejects a ReadableStream without a known length, so the L2
+// wrapper does not use ReadableStreamFromReader here. The decoded
+// *UploadedPart carries back the fake's partNumber/etag.
 func TestMultipartUpload_UploadPart(t *testing.T) {
 	var gotPartNumber int
 	var gotValue js.Value
@@ -48,10 +48,14 @@ func TestMultipartUpload_UploadPart(t *testing.T) {
 	if gotPartNumber != 3 {
 		t.Errorf("uploadPart received partNumber = %d, want 3", gotPartNumber)
 	}
-	// A ReadableStream (as opposed to the io.Reader Go value or a plain
-	// Uint8Array) exposes getReader.
-	if gotValue.IsUndefined() || gotValue.Get("getReader").IsUndefined() {
-		t.Errorf("UploadPart() did not pass a ReadableStream to the JS call, got %v", gotValue)
+	if !gotValue.InstanceOf(js.Global().Get("ArrayBuffer")) {
+		t.Fatalf("UploadPart() passed %v, want an ArrayBuffer", gotValue)
+	}
+	u8 := js.Global().Get("Uint8Array").New(gotValue)
+	gotBytes := make([]byte, u8.Get("byteLength").Int())
+	js.CopyBytesToGo(gotBytes, u8)
+	if string(gotBytes) != "part body" {
+		t.Errorf("uploadPart body = %q, want %q", gotBytes, "part body")
 	}
 	if part.PartNumber != 3 {
 		t.Errorf("part.PartNumber = %d, want 3", part.PartNumber)

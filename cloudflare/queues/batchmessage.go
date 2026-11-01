@@ -4,6 +4,8 @@ import (
 	"syscall/js"
 
 	queuesjs "github.com/syumai/workers-go/exp/cloudflare/queues"
+
+	"github.com/syumai/workers-go/internal/jsutil"
 )
 
 // MessageSendRequest is a wrapper type used for sending message batches.
@@ -19,8 +21,10 @@ func NewTextMessageSendRequest(content string, opts ...SendOption) *MessageSendR
 }
 
 // NewBytesMessageSendRequest creates a single byte array message to be batched before sending to a queue.
+// syscall/js.ValueOf does not accept []byte (it panics), so the body is a
+// Uint8Array, the same value Producer.SendBytes sends.
 func NewBytesMessageSendRequest(content []byte, opts ...SendOption) *MessageSendRequest {
-	return newMessageSendRequest(js.ValueOf(content), contentTypeBytes, opts...)
+	return newMessageSendRequest(jsutil.BytesToJS(content), contentTypeBytes, opts...)
 }
 
 // NewJSONMessageSendRequest creates a single JSON message to be batched before sending to a queue.

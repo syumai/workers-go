@@ -4,6 +4,8 @@ import (
 	"io"
 
 	r2js "github.com/syumai/workers-go/exp/cloudflare/r2"
+
+	"github.com/syumai/workers-go/internal/jsutil"
 )
 
 // MultipartUpload represents an in-progress multipart upload of an R2
@@ -81,9 +83,20 @@ func (r *Bucket) ResumeMultipartUpload(key, uploadID string) *MultipartUpload {
 
 // UploadPart uploads part partNumber (an integer between 1 and 10,000
 // inclusive) of the multipart upload, reading its content from value.
+// The bytes are sent as an ArrayBuffer. workerd rejects a ReadableStream
+// that does not already know its length, which is what an io.Reader
+// converted with ReadableStreamFromReader produces.
 //   - if a network error happens, returns error.
 func (u *MultipartUpload) UploadPart(partNumber int, value io.Reader) (*UploadedPart, error) {
-	part, err := u.instance.UploadPart(float64(partNumber), value, r2js.R2UploadPartOptions{})
+	if c, ok := value.(io.Closer); ok {
+		defer c.Close()
+	}
+	b, err := io.ReadAll(value)
+	if err != nil {
+		return nil, err
+	}
+	ua := jsutil.BytesToJS(b)
+	part, err := u.instance.UploadPart(float64(partNumber), ua.Get("buffer"), r2js.R2UploadPartOptions{})
 	if err != nil {
 		return nil, err
 	}

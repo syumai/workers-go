@@ -52,13 +52,19 @@ func main() {
 	mux.HandleFunc("/fixed", handleFixed)
 	mux.HandleFunc("/env/", handleEnv)
 	mux.HandleFunc("/kv", handleKVList)
+	mux.HandleFunc("/kv/get-strings", handleKVGetStrings)
 	mux.HandleFunc("/kv/", handleKVItem)
 	mux.HandleFunc("/r2", handleR2List)
+	mux.HandleFunc("/r2/multipart", handleR2Multipart)
+	mux.HandleFunc("/r2/multipart/complete", handleR2Multipart)
+	mux.HandleFunc("/r2/multipart/abort", handleR2Multipart)
 	mux.HandleFunc("/r2/", handleR2Item)
 	mux.HandleFunc("/d1/exec", handleD1Exec)
 	mux.HandleFunc("/d1/query", handleD1Query)
 	mux.HandleFunc("/queue/send", handleQueueSend)
+	mux.HandleFunc("/queue/send-batch", handleQueueSendBatch)
 	mux.HandleFunc("/queue/received", handleQueueReceived)
+	mux.HandleFunc("/queue/meta", handleQueueMeta)
 	mux.HandleFunc("/waituntil", handleWaitUntil)
 	mux.HandleFunc("/waituntil/result", handleWaitUntilResult)
 
@@ -254,6 +260,44 @@ func handleKVList(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(kvListResponse{Keys: keys}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// kvGetStringsRequest is the JSON body of POST /kv/get-strings.
+type kvGetStringsRequest struct {
+	Keys []string `json:"keys"`
+}
+
+// handleKVGetStrings bulk-reads string values with Namespace.GetStrings.
+// The response is the map the SDK returns: keys that do not exist are
+// omitted rather than set to null or "".
+func handleKVGetStrings(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	var req kvGetStringsRequest
+	if r.Body == nil { // see the NOTE in handleEcho about nil Body.
+		http.Error(w, "missing body", http.StatusBadRequest)
+		return
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	ns, err := kv.NewNamespace(kvBindingName)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	got, err := ns.GetStrings(req.Keys, nil)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(got); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

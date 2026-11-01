@@ -1144,8 +1144,8 @@ func (x *R2MultipartUpload) UploadID() string {
 }
 
 // UploadPart
-func (x *R2MultipartUpload) UploadPart(partNumber float64, value io.Reader, options R2UploadPartOptions) (R2UploadedPart, error) {
-	p, err := jsrt.Call(x.v, "uploadPart", partNumber, jsrt.ReadableStreamFromReader(value), options.toJS())
+func (x *R2MultipartUpload) UploadPart(partNumber float64, value js.Value, options R2UploadPartOptions) (R2UploadedPart, error) {
+	p, err := jsrt.Call(x.v, "uploadPart", partNumber, value, options.toJS())
 	if err != nil {
 		return R2UploadedPart{}, err
 	}
