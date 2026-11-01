@@ -11,3 +11,4 @@ bindings:
   - Streams
 types:
   Streams.uploadRaw.params.data: "io.Reader"
+  Streams.uploadBuffered.params.body: "io.ReaderAsArrayBuffer"

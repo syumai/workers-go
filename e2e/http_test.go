@@ -264,18 +264,23 @@ func TestKitchenSink(t *testing.T) {
 	t.Run("kv/get_missing", testKVGetMissing(w))
 	t.Run("kv/list_prefix", testKVListPrefix(w))
 	t.Run("kv/delete", testKVDelete(w))
+	t.Run("kv/get_strings", testKVGetStrings(w))
 
 	t.Run("r2/put_get_roundtrip", testR2PutGetRoundtrip(w))
 	t.Run("r2/head", testR2Head(w))
 	t.Run("r2/get_missing", testR2GetMissing(w))
 	t.Run("r2/delete", testR2Delete(w))
 	t.Run("r2/list", testR2List(w))
+	t.Run("r2/multipart_complete", testR2MultipartComplete(w))
+	t.Run("r2/multipart_abort", testR2MultipartAbort(w))
 
 	t.Run("d1/create_insert_query", testD1CreateInsertQuery(w))
 	t.Run("d1/blob_roundtrip", testD1BlobRoundtrip(w))
 	t.Run("d1/null_real_text", testD1NullRealText(w))
 
 	t.Run("queue/roundtrip", testQueueRoundtrip(w))
+	t.Run("queue/send_batch_content_types", testQueueSendBatchContentTypes(w))
+	t.Run("queue/send_batch_delay", testQueueSendBatchDelay(w))
 
 	t.Run("cron/fires", testCronFires(w))
 }

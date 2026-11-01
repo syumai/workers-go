@@ -81,3 +81,19 @@ func (x *Streams) UploadRaw(data io.Reader) error {
 	_, err = jsrt.Await(p)
 	return err
 }
+
+// UploadBuffered io.ReaderAsArrayBuffer keeps the Go parameter as io.Reader and reads it into an ArrayBuffer
+func (x *Streams) UploadBuffered(body io.Reader) error {
+	var err error
+	var arg0 js.Value
+	arg0, err = jsrt.ArrayBufferFromReader(body)
+	if err != nil {
+		return err
+	}
+	p, err := jsrt.Call(x.v, "uploadBuffered", arg0)
+	if err != nil {
+		return err
+	}
+	_, err = jsrt.Await(p)
+	return err
+}

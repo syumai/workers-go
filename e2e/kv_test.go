@@ -87,6 +87,49 @@ func testKVListPrefix(w *worker) func(t *testing.T) {
 	}
 }
 
+func testKVGetStrings(w *worker) func(t *testing.T) {
+	return func(t *testing.T) {
+		if testing.Short() {
+			t.Skip("skipping e2e test in short mode")
+		}
+		// An empty string is a present value and must stay in the map.
+		// A key that was never written must be omitted: GetStrings has no
+		// single ErrNotFound for a mixed batch.
+		puts := map[string]string{
+			"e2e-bulk-a":     "alpha",
+			"e2e-bulk-b":     "beta",
+			"e2e-bulk-empty": "",
+		}
+		for key, value := range puts {
+			resp, body := w.Do(t, http.MethodPut, "/kv/"+key, nil, strings.NewReader(value))
+			if resp.StatusCode != http.StatusNoContent {
+				t.Fatalf("PUT %s status = %d, want %d (body = %q)", key, resp.StatusCode, http.StatusNoContent, body)
+			}
+		}
+
+		const reqBody = `{"keys":["e2e-bulk-a","e2e-bulk-b","e2e-bulk-empty","e2e-bulk-missing"]}`
+		resp, body := w.Do(t, http.MethodPost, "/kv/get-strings", nil, strings.NewReader(reqBody))
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("POST /kv/get-strings status = %d, want %d (body = %q)", resp.StatusCode, http.StatusOK, body)
+		}
+		var got map[string]string
+		if err := json.Unmarshal([]byte(body), &got); err != nil {
+			t.Fatalf("failed to unmarshal get-strings response %q: %v", body, err)
+		}
+		for key, value := range puts {
+			if got[key] != value {
+				t.Errorf("GetStrings[%q] = %q, want %q", key, got[key], value)
+			}
+		}
+		if _, ok := got["e2e-bulk-missing"]; ok {
+			t.Errorf("GetStrings included %q for a missing key, want it omitted (map = %v)", "e2e-bulk-missing", got)
+		}
+		if len(got) != len(puts) {
+			t.Errorf("GetStrings returned %d keys, want %d (map = %v)", len(got), len(puts), got)
+		}
+	}
+}
+
 func testKVDelete(w *worker) func(t *testing.T) {
 	return func(t *testing.T) {
 		if testing.Short() {

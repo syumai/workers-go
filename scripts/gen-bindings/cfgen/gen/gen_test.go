@@ -256,6 +256,11 @@ func TestGenerateGoldenStreams(t *testing.T) {
 		// parameter.
 		"func (x *Streams) UploadRaw(data io.Reader) error {",
 		"jsrt.Call(x.v, \"uploadRaw\", jsrt.ReadableStreamFromReader(data))",
+		// io.ReaderAsArrayBuffer keeps the Go parameter as io.Reader and
+		// returns a read error instead of building an unbounded stream.
+		"func (x *Streams) UploadBuffered(body io.Reader) error {",
+		"arg0, err = jsrt.ArrayBufferFromReader(body)",
+		"jsrt.Call(x.v, \"uploadBuffered\", arg0)",
 	} {
 		if !strings.Contains(src, want) {
 			t.Errorf("generated source missing %q", want)

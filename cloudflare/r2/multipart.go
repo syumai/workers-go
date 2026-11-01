@@ -81,6 +81,8 @@ func (r *Bucket) ResumeMultipartUpload(key, uploadID string) *MultipartUpload {
 
 // UploadPart uploads part partNumber (an integer between 1 and 10,000
 // inclusive) of the multipart upload, reading its content from value.
+// The generated binding reads value to completion and sends an ArrayBuffer.
+// workerd rejects a ReadableStream that does not already know its length.
 //   - if a network error happens, returns error.
 func (u *MultipartUpload) UploadPart(partNumber int, value io.Reader) (*UploadedPart, error) {
 	part, err := u.instance.UploadPart(float64(partNumber), value, r2js.R2UploadPartOptions{})

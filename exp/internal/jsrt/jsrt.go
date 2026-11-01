@@ -201,6 +201,28 @@ func ReadableStreamFromReader(r io.Reader) js.Value {
 	return jsutil.ConvertReaderToReadableStream(r)
 }
 
+// ArrayBufferFromReader reads r to completion and returns a JS ArrayBuffer
+// holding those bytes. A nil reader yields an empty ArrayBuffer. If r
+// implements io.Closer, it is closed before returning.
+//
+// R2's uploadPart accepts a ReadableStream only when its length is already
+// known. ReadableStreamFromReader produces a stream without a length, which
+// workerd rejects ("must have a known length"). An ArrayBuffer always has
+// one, so generated bindings that must accept an io.Reader use this instead.
+func ArrayBufferFromReader(r io.Reader) (js.Value, error) {
+	if r == nil {
+		return js.Global().Get("ArrayBuffer").New(0), nil
+	}
+	if c, ok := r.(io.Closer); ok {
+		defer c.Close()
+	}
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return js.Value{}, err
+	}
+	return BytesToJS(b).Get("buffer"), nil
+}
+
 // HeadersFromJS converts a JS Headers value into an http.Header.
 func HeadersFromJS(v js.Value) http.Header {
 	return jshttp.ToHeader(v)

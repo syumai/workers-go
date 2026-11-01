@@ -56,6 +56,16 @@
           ],
           "returns": { "k": "ref", "name": "Promise", "args": [ { "k": "prim", "name": "void" } ] },
           "typeParams": []
+        },
+        {
+          "kind": "method",
+          "name": "uploadBuffered",
+          "doc": "io.ReaderAsArrayBuffer keeps the Go parameter as io.Reader and reads it into an ArrayBuffer",
+          "params": [
+            { "name": "body", "type": { "k": "union", "types": [ { "k": "ref", "name": "ReadableStream", "args": [] }, { "k": "ref", "name": "ArrayBuffer", "args": [] } ] }, "optional": false, "rest": false }
+          ],
+          "returns": { "k": "ref", "name": "Promise", "args": [ { "k": "prim", "name": "void" } ] },
+          "typeParams": []
         }
       ]
     }

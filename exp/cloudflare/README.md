@@ -621,7 +621,10 @@ types:                             # override the Go type for one field,
                                     # "Decl.member", "Decl.method.returns",
                                     # or "Decl.method.params.<name>".
                                     # supported values: js.Value, io.Reader,
-                                    # http.Header, time.Time, string,
+                                    # io.ReaderAsArrayBuffer (io.Reader in
+                                    # Go; the method reads it and passes an
+                                    # ArrayBuffer), http.Header, time.Time,
+                                    # string,
                                     # float32, float64, bool, int, *int,
                                     # []string/[]float32/... (any of the
                                     # above with a "[]" prefix),

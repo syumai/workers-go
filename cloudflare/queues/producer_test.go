@@ -157,6 +157,35 @@ func TestSendBatch_Options(t *testing.T) {
 	}
 }
 
+func TestSendBatch_Bytes(t *testing.T) {
+	want := []byte{1, 2, 3, 255}
+	validation := func(batch js.Value, _ js.Value) error {
+		if batch.Length() != 1 {
+			return fmt.Errorf("expected 1 message, got %d", batch.Length())
+		}
+		msg := batch.Index(0)
+		if msg.Get("contentType").String() != "bytes" {
+			return fmt.Errorf("content type = %q, want %q", msg.Get("contentType").String(), "bytes")
+		}
+		body := msg.Get("body")
+		if !body.InstanceOf(jsutil.Uint8ArrayClass) {
+			return fmt.Errorf("body type = %v, want Uint8Array", body.Type())
+		}
+		got := jstest.Bytes(t, body)
+		if !bytes.Equal(got, want) {
+			return fmt.Errorf("body = %v, want %v", got, want)
+		}
+		return nil
+	}
+
+	producer := validatingProducer(t, validation)
+	if err := producer.SendBatch([]*MessageSendRequest{
+		NewBytesMessageSendRequest(want),
+	}); err != nil {
+		t.Fatalf("SendBatch failed: %v", err)
+	}
+}
+
 func TestProducer_SendBytes(t *testing.T) {
 	want := []byte{1, 2, 3}
 	validation := func(message js.Value, options js.Value) error {
