@@ -10,7 +10,7 @@ Node.js does, and only what needs a real Workers runtime goes through
 | L0 pure Go | Node.js (wasm) or host | Logic that never touches JS (`RedirectMode.IsValid`, `Socket` deadlines, `workers-assets-gen`, `handler.go`) | `make test` / `make test-host` |
 | L1 fake JS | Node.js (wasm) | Conversions and option builders fed with `js.ValueOf`, plus every binding API (KV / R2 / D1 / Queues / Cache / DO stub / fetch) driven through a fake JS object built with `js.FuncOf` | `make test` |
 | L2 binding contract | Node.js (wasm) | The functions Go registers on `context.binding` (`handleRequest`, `runScheduler`, `handleQueueMessageBatch`, `runHonoMiddleware`), invoked the way `worker.mjs` does | `make test` |
-| L3 end-to-end | `wrangler dev` (workerd) | Real `worker.mjs` + `app.wasm` fixtures under `e2e/testdata/workers`: HTTP, KV, R2, D1, Queues, cron, Durable Objects, `connect()`, `cf.FromRequest`, version metadata, rate limiting, Images `Info`/resize, Workers AI `Run` (skipped when wrangler has no Cloudflare account), Pages, TinyGo | `make test-e2e` |
+| L3 end-to-end | `wrangler dev` (workerd) | Real `worker.mjs` + `app.wasm` fixtures under `e2e/testdata/workers`: HTTP, KV, R2, D1, Queues, cron, Durable Objects, `connect()`, `cf.FromRequest`, version metadata, rate limiting, Images `Info`/resize, Analytics Engine `WriteDataPoint` (the local binding accepts the write and discards the point; there is no local read), Workers AI `Run` (skipped when wrangler has no Cloudflare account), Pages, TinyGo | `make test-e2e` |
 
 `make test-all` runs all of them.
 

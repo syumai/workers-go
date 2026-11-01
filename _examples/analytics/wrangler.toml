@@ -1,0 +1,13 @@
+name = "workers-go-analytics"
+main = "./build/worker.mjs"
+compatibility_date = "2025-06-01"
+
+# Local wrangler dev simulates this binding. writeDataPoint succeeds and
+# the point is discarded. A temporary Cloudflare account rejects the
+# binding until Analytics Engine is enabled (error 10089).
+[[analytics_engine_datasets]]
+binding = "ANALYTICS"
+dataset = "workers_go_example"
+
+[build]
+command = "make build"
