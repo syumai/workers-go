@@ -30,9 +30,11 @@ type cfPropsResponse struct {
 }
 
 // cfExpResponse mirrors testdata/workers/kitchensink/cfexp.go. Geo and ASN
-// values come from workerd's cf.json lookup for this machine's address, so
-// the test checks that those fields are populated rather than pinning the
-// colo or city.
+// values come from workerd's cf.json lookup for this machine's address.
+// The test checks coarse fields that lookup fills anywhere, and only
+// checks that finer fields decoded as plain strings: metroCode is a US
+// DMA code, and city, region, regionCode, and postalCode are absent for
+// some addresses.
 type cfExpResponse struct {
 	ASN                         float64 `json:"asn"`
 	AsOrganization              string  `json:"asOrganization"`
@@ -278,8 +280,10 @@ func TestKitchenSink(t *testing.T) {
 // object wrangler dev (workerd) actually attaches to a local fetch.
 // Fields that only exist on the production edge (Cloudflare for SaaS
 // hostMetadata, a Bot Management clientTrustScore) are asserted absent.
-// Geo fields are asserted present but not equal to a particular colo:
-// workerd fills them from a cf.json lookup for the machine's address.
+// Coarse geo fields are asserted present but not equal to a particular
+// colo: workerd fills them from a cf.json lookup for the machine's
+// address. Finer fields (city, region, postalCode, metroCode) and
+// clientTcpRtt are location- or network-dependent and may be empty or 0.
 func testCFExpFromRequest(w *worker) func(*testing.T) {
 	return func(t *testing.T) {
 		resp, body := w.Get(t, "/cfexp")
@@ -337,18 +341,15 @@ func testCFExpFromRequest(w *worker) func(*testing.T) {
 			t.Errorf("tlsExportedAuthenticator.clientHandshake missing (has=%v handshake=%q)", got.HasTLSExportedAuthenticator, got.TLSClientHandshake)
 		}
 
+		// Present for any address workerd can resolve. Values themselves
+		// still depend on where the test runs.
 		nonEmpty := map[string]string{
 			"colo":           got.Colo,
 			"country":        got.Country,
 			"continent":      got.Continent,
-			"city":           got.City,
-			"region":         got.Region,
-			"regionCode":     got.RegionCode,
 			"timezone":       got.Timezone,
 			"latitude":       got.Latitude,
 			"longitude":      got.Longitude,
-			"postalCode":     got.PostalCode,
-			"metroCode":      got.MetroCode,
 			"asOrganization": got.AsOrganization,
 			"tlsVersion":     got.TLSVersion,
 			"tlsCipher":      got.TLSCipher,
@@ -358,11 +359,28 @@ func testCFExpFromRequest(w *worker) func(*testing.T) {
 				t.Errorf("%s is empty", name)
 			}
 		}
+		// Not always known: metroCode is a US DMA code, and city, region,
+		// regionCode, and postalCode are missing for some addresses. A
+		// syscall/js debug string ("<undefined>", "<boolean: …>") would
+		// mean the decoder mishandled the JS value.
+		optionalGeo := map[string]string{
+			"city":       got.City,
+			"region":     got.Region,
+			"regionCode": got.RegionCode,
+			"postalCode": got.PostalCode,
+			"metroCode":  got.MetroCode,
+		}
+		for name, value := range optionalGeo {
+			if strings.HasPrefix(value, "<") {
+				t.Errorf("%s = %q, want a plain string or empty", name, value)
+			}
+		}
 		if got.ASN == 0 {
 			t.Error("asn = 0, want the cf.json lookup's ASN")
 		}
-		if got.ClientTcpRtt <= 0 {
-			t.Errorf("clientTcpRtt = %v, want > 0", got.ClientTcpRtt)
+		// 0 is a real measurement (idle or unmeasured path), not a missing field.
+		if got.ClientTcpRtt < 0 {
+			t.Errorf("clientTcpRtt = %v, want >= 0", got.ClientTcpRtt)
 		}
 	}
 }
