@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"syscall/js"
 	"testing"
@@ -66,14 +67,19 @@ func fakeWebSocketPair(t *testing.T) (client, server js.Value, fs *fakeServer) {
 		return js.Undefined()
 	}))
 	server.Set("close", js.FuncOf(func(this js.Value, args []js.Value) any {
-		fs.mu.Lock()
-		fs.closed = true
+		call := recordedClose{}
 		if len(args) > 0 {
-			fs.closeCode = args[0].Int()
+			call.hasCode = true
+			call.code = args[0].Int()
 		}
 		if len(args) > 1 {
-			fs.closeReason = args[1].String()
+			call.reason = args[1].String()
 		}
+		fs.mu.Lock()
+		fs.closed = true
+		fs.closeCode = call.code
+		fs.closeReason = call.reason
+		fs.closes = append(fs.closes, call)
 		fs.mu.Unlock()
 		return js.Undefined()
 	}))
@@ -81,6 +87,20 @@ func fakeWebSocketPair(t *testing.T) (client, server js.Value, fs *fakeServer) {
 		name := args[0].String()
 		fs.mu.Lock()
 		fs.listeners[name] = append(fs.listeners[name], args[1])
+		fs.mu.Unlock()
+		return js.Undefined()
+	}))
+	server.Set("removeEventListener", js.FuncOf(func(this js.Value, args []js.Value) any {
+		name := args[0].String()
+		fn := args[1]
+		fs.mu.Lock()
+		kept := make([]js.Value, 0, len(fs.listeners[name]))
+		for _, l := range fs.listeners[name] {
+			if !l.Equal(fn) {
+				kept = append(kept, l)
+			}
+		}
+		fs.listeners[name] = kept
 		fs.mu.Unlock()
 		return js.Undefined()
 	}))
@@ -106,6 +126,12 @@ func fakeWebSocketPair(t *testing.T) (client, server js.Value, fs *fakeServer) {
 	return client, server, fs
 }
 
+type recordedClose struct {
+	hasCode bool
+	code    int
+	reason  string
+}
+
 type fakeServer struct {
 	mu          sync.Mutex
 	accepted    bool
@@ -113,6 +139,7 @@ type fakeServer struct {
 	closed      bool
 	closeCode   int
 	closeReason string
+	closes      []recordedClose
 	listeners   map[string][]js.Value
 }
 
@@ -285,5 +312,191 @@ func TestConn_Close(t *testing.T) {
 	}
 	if fs.closeCode != 1000 || fs.closeReason != "bye" {
 		t.Errorf("close() called with (%d, %q), want (1000, \"bye\")", fs.closeCode, fs.closeReason)
+	}
+	if len(fs.closes) != 1 {
+		t.Errorf("close() called %d times, want 1", len(fs.closes))
+	}
+}
+
+func TestConn_Close_Idempotent(t *testing.T) {
+	_, _, fs := fakeWebSocketPair(t)
+	w := newResponseWriter()
+	conn, err := Upgrade(w, newUpgradeRequest())
+	if err != nil {
+		t.Fatalf("Upgrade() failed: %v", err)
+	}
+	if err := conn.Close(1000, "bye"); err != nil {
+		t.Fatalf("Close() failed: %v", err)
+	}
+	if err := conn.Close(4000, "again"); err != nil {
+		t.Fatalf("second Close() failed: %v", err)
+	}
+
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	if len(fs.closes) != 1 {
+		t.Fatalf("close() called %d times, want 1", len(fs.closes))
+	}
+	if fs.closes[0].code != 1000 || fs.closes[0].reason != "bye" {
+		t.Errorf("close() called with (%d, %q), want (1000, \"bye\")", fs.closes[0].code, fs.closes[0].reason)
+	}
+}
+
+func TestConn_ClientClose_Replies(t *testing.T) {
+	_, _, fs := fakeWebSocketPair(t)
+	w := newResponseWriter()
+	conn, err := Upgrade(w, newUpgradeRequest())
+	if err != nil {
+		t.Fatalf("Upgrade() failed: %v", err)
+	}
+
+	// No Conn.Close yet: the close listener itself must reciprocate, which
+	// is what a client close(1000) needs under wrangler dev.
+	fs.dispatch("close", js.ValueOf(map[string]any{
+		"code":   1000,
+		"reason": "bye",
+	}))
+
+	fs.mu.Lock()
+	if len(fs.closes) != 1 {
+		fs.mu.Unlock()
+		t.Fatalf("close() called %d times before Conn.Close, want 1", len(fs.closes))
+	}
+	got := fs.closes[0]
+	fs.mu.Unlock()
+	if !got.hasCode || got.code != 1000 || got.reason != "bye" {
+		t.Fatalf("close() called with hasCode=%v (%d, %q), want (1000, \"bye\")", got.hasCode, got.code, got.reason)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if _, _, err := conn.ReadMessage(ctx); err != ErrClosed {
+		t.Fatalf("ReadMessage() after close event returned err = %v, want ErrClosed", err)
+	}
+
+	// The usual defer conn.Close(0, "") must not send a second frame or panic.
+	if err := conn.Close(0, ""); err != nil {
+		t.Fatalf("Close() after peer close failed: %v", err)
+	}
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	if len(fs.closes) != 1 {
+		t.Fatalf("close() called %d times after Conn.Close, want 1", len(fs.closes))
+	}
+}
+
+func TestConn_ClientClose_NormalizesReservedCode(t *testing.T) {
+	_, _, fs := fakeWebSocketPair(t)
+	w := newResponseWriter()
+	conn, err := Upgrade(w, newUpgradeRequest())
+	if err != nil {
+		t.Fatalf("Upgrade() failed: %v", err)
+	}
+	defer conn.Close(0, "")
+
+	fs.dispatch("close", js.ValueOf(map[string]any{
+		"code":   1005,
+		"reason": "no status",
+	}))
+
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	if len(fs.closes) != 1 {
+		t.Fatalf("close() called %d times, want 1", len(fs.closes))
+	}
+	got := fs.closes[0]
+	if !got.hasCode || got.code != 1000 || got.reason != "no status" {
+		t.Fatalf("close() called with hasCode=%v (%d, %q), want (1000, \"no status\")", got.hasCode, got.code, got.reason)
+	}
+}
+
+func TestConn_ClientClose_EchoesApplicationCode(t *testing.T) {
+	_, _, fs := fakeWebSocketPair(t)
+	w := newResponseWriter()
+	conn, err := Upgrade(w, newUpgradeRequest())
+	if err != nil {
+		t.Fatalf("Upgrade() failed: %v", err)
+	}
+	defer conn.Close(0, "")
+
+	fs.dispatch("close", js.ValueOf(map[string]any{
+		"code":   4000,
+		"reason": "app",
+	}))
+
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	if len(fs.closes) != 1 {
+		t.Fatalf("close() called %d times, want 1", len(fs.closes))
+	}
+	got := fs.closes[0]
+	if !got.hasCode || got.code != 4000 || got.reason != "app" {
+		t.Fatalf("close() called with hasCode=%v (%d, %q), want (4000, \"app\")", got.hasCode, got.code, got.reason)
+	}
+}
+
+func TestConn_ClientClose_TruncatesReason(t *testing.T) {
+	_, _, fs := fakeWebSocketPair(t)
+	w := newResponseWriter()
+	conn, err := Upgrade(w, newUpgradeRequest())
+	if err != nil {
+		t.Fatalf("Upgrade() failed: %v", err)
+	}
+	defer conn.Close(0, "")
+
+	reason := strings.Repeat("x", 200)
+	fs.dispatch("close", js.ValueOf(map[string]any{
+		"code":   1000,
+		"reason": reason,
+	}))
+
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	if len(fs.closes) != 1 {
+		t.Fatalf("close() called %d times, want 1", len(fs.closes))
+	}
+	if got := fs.closes[0].reason; len(got) != 123 || got != strings.Repeat("x", 123) {
+		t.Fatalf("close reason = %q (len %d), want 123 xs", got, len(got))
+	}
+}
+
+func TestConn_ErrorThenCloseStillCloses(t *testing.T) {
+	_, _, fs := fakeWebSocketPair(t)
+	w := newResponseWriter()
+	conn, err := Upgrade(w, newUpgradeRequest())
+	if err != nil {
+		t.Fatalf("Upgrade() failed: %v", err)
+	}
+
+	fs.dispatch("error", js.ValueOf(map[string]any{}))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, _, readErr := conn.ReadMessage(ctx)
+	if readErr == nil || readErr == ErrClosed {
+		t.Fatalf("ReadMessage() after error event returned err = %v, want a non-ErrClosed error", readErr)
+	}
+
+	fs.mu.Lock()
+	closedBefore := len(fs.closes)
+	fs.mu.Unlock()
+	if closedBefore != 0 {
+		t.Fatalf("error event sent %d close frame(s), want 0", closedBefore)
+	}
+
+	if err := conn.Close(1000, "after-error"); err != nil {
+		t.Fatalf("Close() after error failed: %v", err)
+	}
+	if err := conn.Close(1000, "after-error"); err != nil {
+		t.Fatalf("second Close() after error failed: %v", err)
+	}
+
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	if len(fs.closes) != 1 {
+		t.Fatalf("close() called %d times, want 1", len(fs.closes))
+	}
+	if fs.closes[0].code != 1000 || fs.closes[0].reason != "after-error" {
+		t.Errorf("close() called with (%d, %q), want (1000, \"after-error\")", fs.closes[0].code, fs.closes[0].reason)
 	}
 }

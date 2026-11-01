@@ -44,6 +44,12 @@
 //		// via its own event-loop-driven I/O, cloudflare.WaitUntil is not
 //		// needed for it.
 //	}
+//
+// A Close frame from the client is reciprocated by the close listener
+// (the peer's code and reason when that code may be sent, otherwise
+// 1000). The deferred Close releases listeners and still sends a Close
+// frame when the connection ends because of an error rather than a peer
+// Close. Calling Close more than once does not send a second frame.
 package websocket
 
 import (
