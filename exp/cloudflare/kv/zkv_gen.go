@@ -58,7 +58,16 @@ func NewKVNamespace(bindingName string) (*KVNamespace, error) {
 
 // GetText
 func (x *KVNamespace) GetText(key string, options KVNamespaceGetOptions) (*string, error) {
-	p, err := jsrt.Call(x.v, "get", key, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsKVNamespaceGetOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg1 = jsKVNamespaceGetOptions
+	}
+	p, err := jsrt.Call(x.v, "get", key, arg1)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +86,16 @@ func (x *KVNamespace) GetText(key string, options KVNamespaceGetOptions) (*strin
 
 // GetJSON
 func (x *KVNamespace) GetJSON(key string, options KVNamespaceGetOptions) (js.Value, error) {
-	p, err := jsrt.Call(x.v, "get", key, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsKVNamespaceGetOptions, err := options.toJS()
+		if err != nil {
+			return js.Undefined(), err
+		}
+		arg1 = jsKVNamespaceGetOptions
+	}
+	p, err := jsrt.Call(x.v, "get", key, arg1)
 	if err != nil {
 		return js.Undefined(), err
 	}
@@ -92,7 +110,16 @@ func (x *KVNamespace) GetJSON(key string, options KVNamespaceGetOptions) (js.Val
 
 // GetBytes
 func (x *KVNamespace) GetBytes(key string, options KVNamespaceGetOptions) ([]byte, error) {
-	p, err := jsrt.Call(x.v, "get", key, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsKVNamespaceGetOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg1 = jsKVNamespaceGetOptions
+	}
+	p, err := jsrt.Call(x.v, "get", key, arg1)
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +136,16 @@ func (x *KVNamespace) GetBytes(key string, options KVNamespaceGetOptions) ([]byt
 
 // GetStream
 func (x *KVNamespace) GetStream(key string, options KVNamespaceGetOptions) (io.ReadCloser, error) {
-	p, err := jsrt.Call(x.v, "get", key, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsKVNamespaceGetOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg1 = jsKVNamespaceGetOptions
+	}
+	p, err := jsrt.Call(x.v, "get", key, arg1)
 	if err != nil {
 		return nil, err
 	}
@@ -126,6 +162,15 @@ func (x *KVNamespace) GetStream(key string, options KVNamespaceGetOptions) (io.R
 
 // GetTextMultiple
 func (x *KVNamespace) GetTextMultiple(key []string, options KVNamespaceGetOptions) (map[string]*string, error) {
+	var err error
+	var arg1 js.Value
+	{
+		jsKVNamespaceGetOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg1 = jsKVNamespaceGetOptions
+	}
 	var arg0 js.Value
 	{
 		arr := js.Global().Get("Array").New(len(key))
@@ -134,7 +179,7 @@ func (x *KVNamespace) GetTextMultiple(key []string, options KVNamespaceGetOption
 		}
 		arg0 = arr
 	}
-	p, err := jsrt.Call(x.v, "get", arg0, options.toJS())
+	p, err := jsrt.Call(x.v, "get", arg0, arg1)
 	if err != nil {
 		return nil, err
 	}
@@ -160,6 +205,15 @@ func (x *KVNamespace) GetTextMultiple(key []string, options KVNamespaceGetOption
 
 // GetJSONMultiple
 func (x *KVNamespace) GetJSONMultiple(key []string, options KVNamespaceGetOptions) (map[string]js.Value, error) {
+	var err error
+	var arg1 js.Value
+	{
+		jsKVNamespaceGetOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg1 = jsKVNamespaceGetOptions
+	}
 	var arg0 js.Value
 	{
 		arr := js.Global().Get("Array").New(len(key))
@@ -168,7 +222,7 @@ func (x *KVNamespace) GetJSONMultiple(key []string, options KVNamespaceGetOption
 		}
 		arg0 = arr
 	}
-	p, err := jsrt.Call(x.v, "get", arg0, options.toJS())
+	p, err := jsrt.Call(x.v, "get", arg0, arg1)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +244,16 @@ func (x *KVNamespace) GetJSONMultiple(key []string, options KVNamespaceGetOption
 
 // List
 func (x *KVNamespace) List(options KVNamespaceListOptions) (KVNamespaceListResult, error) {
-	p, err := jsrt.Call(x.v, "list", options.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsKVNamespaceListOptions, err := options.toJS()
+		if err != nil {
+			return KVNamespaceListResult{}, err
+		}
+		arg0 = jsKVNamespaceListOptions
+	}
+	p, err := jsrt.Call(x.v, "list", arg0)
 	if err != nil {
 		return KVNamespaceListResult{}, err
 	}
@@ -209,7 +272,16 @@ func (x *KVNamespace) List(options KVNamespaceListOptions) (KVNamespaceListResul
 
 // Put
 func (x *KVNamespace) Put(key string, value js.Value, options KVNamespacePutOptions) error {
-	p, err := jsrt.Call(x.v, "put", key, value, options.toJS())
+	var err error
+	var arg2 js.Value
+	{
+		jsKVNamespacePutOptions, err := options.toJS()
+		if err != nil {
+			return err
+		}
+		arg2 = jsKVNamespacePutOptions
+	}
+	p, err := jsrt.Call(x.v, "put", key, value, arg2)
 	if err != nil {
 		return err
 	}
@@ -219,7 +291,16 @@ func (x *KVNamespace) Put(key string, value js.Value, options KVNamespacePutOpti
 
 // GetTextWithMetadata
 func (x *KVNamespace) GetTextWithMetadata(key string, options KVNamespaceGetOptions) (KVNamespaceGetWithMetadataResult, error) {
-	p, err := jsrt.Call(x.v, "getWithMetadata", key, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsKVNamespaceGetOptions, err := options.toJS()
+		if err != nil {
+			return KVNamespaceGetWithMetadataResult{}, err
+		}
+		arg1 = jsKVNamespaceGetOptions
+	}
+	p, err := jsrt.Call(x.v, "getWithMetadata", key, arg1)
 	if err != nil {
 		return KVNamespaceGetWithMetadataResult{}, err
 	}
@@ -238,7 +319,16 @@ func (x *KVNamespace) GetTextWithMetadata(key string, options KVNamespaceGetOpti
 
 // GetJSONWithMetadata
 func (x *KVNamespace) GetJSONWithMetadata(key string, options KVNamespaceGetOptions) (KVNamespaceGetWithMetadataResult, error) {
-	p, err := jsrt.Call(x.v, "getWithMetadata", key, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsKVNamespaceGetOptions, err := options.toJS()
+		if err != nil {
+			return KVNamespaceGetWithMetadataResult{}, err
+		}
+		arg1 = jsKVNamespaceGetOptions
+	}
+	p, err := jsrt.Call(x.v, "getWithMetadata", key, arg1)
 	if err != nil {
 		return KVNamespaceGetWithMetadataResult{}, err
 	}
@@ -257,7 +347,16 @@ func (x *KVNamespace) GetJSONWithMetadata(key string, options KVNamespaceGetOpti
 
 // GetBytesWithMetadata
 func (x *KVNamespace) GetBytesWithMetadata(key string, options KVNamespaceGetOptions) (KVNamespaceGetWithMetadataResult, error) {
-	p, err := jsrt.Call(x.v, "getWithMetadata", key, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsKVNamespaceGetOptions, err := options.toJS()
+		if err != nil {
+			return KVNamespaceGetWithMetadataResult{}, err
+		}
+		arg1 = jsKVNamespaceGetOptions
+	}
+	p, err := jsrt.Call(x.v, "getWithMetadata", key, arg1)
 	if err != nil {
 		return KVNamespaceGetWithMetadataResult{}, err
 	}
@@ -276,7 +375,16 @@ func (x *KVNamespace) GetBytesWithMetadata(key string, options KVNamespaceGetOpt
 
 // GetStreamWithMetadata
 func (x *KVNamespace) GetStreamWithMetadata(key string, options KVNamespaceGetOptions) (KVNamespaceGetWithMetadataResult, error) {
-	p, err := jsrt.Call(x.v, "getWithMetadata", key, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsKVNamespaceGetOptions, err := options.toJS()
+		if err != nil {
+			return KVNamespaceGetWithMetadataResult{}, err
+		}
+		arg1 = jsKVNamespaceGetOptions
+	}
+	p, err := jsrt.Call(x.v, "getWithMetadata", key, arg1)
 	if err != nil {
 		return KVNamespaceGetWithMetadataResult{}, err
 	}
@@ -322,7 +430,7 @@ func kVNamespaceGetOptionsFromJS(v js.Value) (KVNamespaceGetOptions, error) {
 	return out, nil
 }
 
-func (o KVNamespaceGetOptions) toJS() js.Value {
+func (o KVNamespaceGetOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Type != "" {
 		obj.Set("type", o.Type)
@@ -330,7 +438,7 @@ func (o KVNamespaceGetOptions) toJS() js.Value {
 	if o.CacheTTL != 0 {
 		obj.Set("cacheTtl", o.CacheTTL)
 	}
-	return obj
+	return obj, nil
 }
 
 // KVNamespacePutOptions
@@ -360,7 +468,7 @@ func kVNamespacePutOptionsFromJS(v js.Value) (KVNamespacePutOptions, error) {
 	return out, nil
 }
 
-func (o KVNamespacePutOptions) toJS() js.Value {
+func (o KVNamespacePutOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Expiration != 0 {
 		obj.Set("expiration", o.Expiration)
@@ -371,7 +479,7 @@ func (o KVNamespacePutOptions) toJS() js.Value {
 	if !jsrt.IsNil(o.Metadata) {
 		obj.Set("metadata", o.Metadata)
 	}
-	return obj
+	return obj, nil
 }
 
 // KVNamespaceListOptions
@@ -401,7 +509,7 @@ func kVNamespaceListOptionsFromJS(v js.Value) (KVNamespaceListOptions, error) {
 	return out, nil
 }
 
-func (o KVNamespaceListOptions) toJS() js.Value {
+func (o KVNamespaceListOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Limit != 0 {
 		obj.Set("limit", o.Limit)
@@ -412,7 +520,7 @@ func (o KVNamespaceListOptions) toJS() js.Value {
 	if o.Cursor != "" {
 		obj.Set("cursor", o.Cursor)
 	}
-	return obj
+	return obj, nil
 }
 
 // KVNamespaceListResult
@@ -451,7 +559,7 @@ func kVNamespaceListResultFromJS(v js.Value) (KVNamespaceListResult, error) {
 	return out, nil
 }
 
-func (o KVNamespaceListResult) toJS() js.Value {
+func (o KVNamespaceListResult) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ListComplete {
 		obj.Set("list_complete", o.ListComplete)
@@ -459,7 +567,11 @@ func (o KVNamespaceListResult) toJS() js.Value {
 	if len(o.Keys) > 0 {
 		arr := js.Global().Get("Array").New(len(o.Keys))
 		for i, e := range o.Keys {
-			arr.SetIndex(i, e.toJS())
+			jsKVNamespaceListKey, err := e.toJS()
+			if err != nil {
+				return js.Value{}, err
+			}
+			arr.SetIndex(i, jsKVNamespaceListKey)
 		}
 		obj.Set("keys", arr)
 	}
@@ -469,7 +581,7 @@ func (o KVNamespaceListResult) toJS() js.Value {
 	if o.CacheStatus != "" {
 		obj.Set("cacheStatus", o.CacheStatus)
 	}
-	return obj
+	return obj, nil
 }
 
 // KVNamespaceListKey
@@ -497,7 +609,7 @@ func kVNamespaceListKeyFromJS(v js.Value) (KVNamespaceListKey, error) {
 	return out, nil
 }
 
-func (o KVNamespaceListKey) toJS() js.Value {
+func (o KVNamespaceListKey) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Name != "" {
 		obj.Set("name", o.Name)
@@ -508,7 +620,7 @@ func (o KVNamespaceListKey) toJS() js.Value {
 	if !jsrt.IsNil(o.Metadata) {
 		obj.Set("metadata", o.Metadata)
 	}
-	return obj
+	return obj, nil
 }
 
 // KVNamespaceGetWithMetadataResult
@@ -538,7 +650,7 @@ func kVNamespaceGetWithMetadataResultFromJS(v js.Value) (KVNamespaceGetWithMetad
 	return out, nil
 }
 
-func (o KVNamespaceGetWithMetadataResult) toJS() js.Value {
+func (o KVNamespaceGetWithMetadataResult) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if !jsrt.IsNil(o.Value) {
 		obj.Set("value", o.Value)
@@ -549,5 +661,5 @@ func (o KVNamespaceGetWithMetadataResult) toJS() js.Value {
 	if o.CacheStatus != "" {
 		obj.Set("cacheStatus", o.CacheStatus)
 	}
-	return obj
+	return obj, nil
 }

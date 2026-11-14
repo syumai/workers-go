@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"syscall/js"
 	"time"
 
@@ -117,6 +118,105 @@ func BytesFromJS(v js.Value) []byte {
 // BytesToJS copies a Go byte slice into a new JS Uint8Array.
 func BytesToJS(b []byte) js.Value {
 	return jsutil.BytesToJS(b)
+}
+
+// AnyToJS converts an arbitrary Go value, as accepted by a generated
+// "any"/"unknown"-typed field of a structured (RPC / structured-clone) value
+// such as Vectorize metadata, into a JS value. It extends js.ValueOf (which
+// supports only nil, bool, numbers, strings, []any, map[string]any and
+// js.Value, and panics on anything else) with the conversions workers-go
+// needs for Cloudflare APIs:
+//
+//   - nil becomes null
+//   - []byte becomes a new Uint8Array (a nil slice becomes an empty one)
+//   - time.Time becomes a Date
+//   - js.Value, and types with a JSValue() js.Value method (generated handle
+//     types), pass through
+//   - slices/arrays and string-keyed maps become Arrays/plain objects, each
+//     element converted recursively so that e.g. a []byte nested in a
+//     map[string]any is converted too
+//
+// A value with no JS representation (a chan, func, struct, a map with
+// non-string keys, ...) is reported as an error. AnyToJS never panics, so it
+// is safe to call outside jsrt.Call's recover.
+func AnyToJS(v any) (js.Value, error) {
+	switch x := v.(type) {
+	case nil:
+		return js.Null(), nil
+	case js.Value:
+		return x, nil
+	case interface{ JSValue() js.Value }:
+		return x.JSValue(), nil
+	case []byte:
+		return BytesToJS(x), nil
+	case time.Time:
+		return TimeToDate(x), nil
+	case bool, string,
+		int, int8, int16, int32, int64,
+		uint, uint8, uint16, uint32, uint64, uintptr,
+		float32, float64:
+		return valueOf(v)
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Slice, reflect.Array:
+		arr := js.Global().Get("Array").New(rv.Len())
+		for i := 0; i < rv.Len(); i++ {
+			e, err := AnyToJS(rv.Index(i).Interface())
+			if err != nil {
+				return js.Value{}, fmt.Errorf("index %d: %w", i, err)
+			}
+			arr.SetIndex(i, e)
+		}
+		return arr, nil
+	case reflect.Map:
+		if rv.Type().Key().Kind() != reflect.String {
+			break
+		}
+		o := NewObject()
+		iter := rv.MapRange()
+		for iter.Next() {
+			k := iter.Key().String()
+			e, err := AnyToJS(iter.Value().Interface())
+			if err != nil {
+				return js.Value{}, fmt.Errorf("key %q: %w", k, err)
+			}
+			o.Set(k, e)
+		}
+		return o, nil
+	case reflect.Pointer:
+		if rv.IsNil() {
+			return js.Null(), nil
+		}
+	}
+	return js.Value{}, fmt.Errorf("jsrt: cannot convert %T to a JS value", v)
+}
+
+// valueOf is js.ValueOf with a panic turned into an error.
+func valueOf(v any) (res js.Value, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			res = js.Value{}
+			err = fmt.Errorf("jsrt: cannot convert %T to a JS value: %v", v, r)
+		}
+	}()
+	return js.ValueOf(v), nil
+}
+
+// AnyArgs applies AnyToJS to each element of args, returning a slice suitable
+// for spreading into Call. Generated bindings use it for rest parameters
+// typed any/unknown. It returns an error, naming the offending element, for a
+// value with no JS representation. It never panics.
+func AnyArgs(args []any) ([]any, error) {
+	out := make([]any, len(args))
+	for i, a := range args {
+		v, err := AnyToJS(a)
+		if err != nil {
+			return nil, fmt.Errorf("argument %d: %w", i, err)
+		}
+		out[i] = v
+	}
+	return out, nil
 }
 
 var (

@@ -98,7 +98,16 @@ func (x *SendEmail) Send(message js.Value) (EmailSendResult, error) {
 
 // SendBuilder
 func (x *SendEmail) SendBuilder(builder EmailMessageBuilder) (EmailSendResult, error) {
-	p, err := jsrt.Call(x.v, "send", builder.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsEmailMessageBuilder, err := builder.toJS()
+		if err != nil {
+			return EmailSendResult{}, err
+		}
+		arg0 = jsEmailMessageBuilder
+	}
+	p, err := jsrt.Call(x.v, "send", arg0)
 	if err != nil {
 		return EmailSendResult{}, err
 	}
@@ -217,7 +226,16 @@ func (x *ForwardableEmailMessage) Reply(message js.Value) (EmailSendResult, erro
 // @param builder The reply message contents.
 // @returns A promise that resolves when the email message is replied.
 func (x *ForwardableEmailMessage) ReplyBuilder(builder EmailReplyMessageBuilder) (EmailSendResult, error) {
-	p, err := jsrt.Call(x.v, "reply", builder.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsEmailReplyMessageBuilder, err := builder.toJS()
+		if err != nil {
+			return EmailSendResult{}, err
+		}
+		arg0 = jsEmailReplyMessageBuilder
+	}
+	p, err := jsrt.Call(x.v, "reply", arg0)
 	if err != nil {
 		return EmailSendResult{}, err
 	}
@@ -248,12 +266,12 @@ func emailSendResultFromJS(v js.Value) (EmailSendResult, error) {
 	return out, nil
 }
 
-func (o EmailSendResult) toJS() js.Value {
+func (o EmailSendResult) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.MessageID != "" {
 		obj.Set("messageId", o.MessageID)
 	}
-	return obj
+	return obj, nil
 }
 
 // EmailMessageBuilder Fields for composing an email without constructing raw MIME, for
@@ -332,7 +350,7 @@ func emailMessageBuilderFromJS(v js.Value) (EmailMessageBuilder, error) {
 	return out, nil
 }
 
-func (o EmailMessageBuilder) toJS() js.Value {
+func (o EmailMessageBuilder) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if !jsrt.IsNil(o.From) {
 		obj.Set("from", o.From)
@@ -372,7 +390,7 @@ func (o EmailMessageBuilder) toJS() js.Value {
 	if !jsrt.IsNil(o.Bcc) {
 		obj.Set("bcc", o.Bcc)
 	}
-	return obj
+	return obj, nil
 }
 
 // EmailReplyMessageBuilder Fields shared by all composed emails (no recipients). Used directly by
@@ -434,7 +452,7 @@ func emailReplyMessageBuilderFromJS(v js.Value) (EmailReplyMessageBuilder, error
 	return out, nil
 }
 
-func (o EmailReplyMessageBuilder) toJS() js.Value {
+func (o EmailReplyMessageBuilder) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if !jsrt.IsNil(o.From) {
 		obj.Set("from", o.From)
@@ -465,7 +483,7 @@ func (o EmailReplyMessageBuilder) toJS() js.Value {
 		}
 		obj.Set("attachments", arr)
 	}
-	return obj
+	return obj, nil
 }
 
 // EmailAddress An Email Address
@@ -485,7 +503,7 @@ func emailAddressFromJS(v js.Value) (EmailAddress, error) {
 	return out, nil
 }
 
-func (o EmailAddress) toJS() js.Value {
+func (o EmailAddress) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Name != "" {
 		obj.Set("name", o.Name)
@@ -493,7 +511,7 @@ func (o EmailAddress) toJS() js.Value {
 	if o.Email != "" {
 		obj.Set("email", o.Email)
 	}
-	return obj
+	return obj, nil
 }
 
 // EmailAttachment A file attachment for an email message

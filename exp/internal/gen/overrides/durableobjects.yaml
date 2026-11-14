@@ -32,6 +32,13 @@ bindings:
   - DurableObjectNamespace
 rename:
   DurableObjectId.toString: String
+  # SqlStorage.exec's bindings are SQL bind values, which have stricter
+  # rules than the generic ...any conversion (a slice or map must be
+  # rejected, not sent to workerd to be silently stringified). The
+  # generator has no way to know a rest parameter means SQL, so the
+  # generated method is kept, unexported, and storage.go's hand-written
+  # Exec validates the bindings before calling it.
+  SqlStorage.exec: exec
 types:
   # waitUntil's promise is Promise<any>; refConv only maps "ref Promise<T>"
   # at a *return* position, so left unconfigured this would warn ("Promise

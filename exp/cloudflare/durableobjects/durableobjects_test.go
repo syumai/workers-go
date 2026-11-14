@@ -290,3 +290,91 @@ func TestSQLStorageCursor_Rows(t *testing.T) {
 		t.Errorf(`Rows()[0]["blob"] = %v, want [1 2 3]`, blob)
 	}
 }
+
+// TestSQLStorage_Exec_BytesBinding is a regression test for generated
+// "...any" rest parameters: SqlStorage.exec's bindings must reach JS with a
+// []byte as a Uint8Array (and a time.Time as a Date) rather than panicking in
+// js.ValueOf, which is what the generated Exec did before cfgen routed rest
+// elements through jsrt.AnyArgs.
+func TestSQLStorage_Exec_BytesBinding(t *testing.T) {
+	var gotQuery string
+	var gotBlob []byte
+	var blobIsU8 bool
+	var gotNum int
+	fake := js.ValueOf(map[string]any{})
+	fake.Set("exec", js.FuncOf(func(this js.Value, args []js.Value) any {
+		gotQuery = args[0].String()
+		blob := args[1]
+		blobIsU8 = blob.InstanceOf(js.Global().Get("Uint8Array"))
+		gotBlob = make([]byte, blob.Length())
+		js.CopyBytesToGo(gotBlob, blob)
+		gotNum = args[2].Int()
+		return js.ValueOf(map[string]any{})
+	}))
+
+	s := SQLStorageFromJS(fake)
+	if _, err := s.Exec("INSERT INTO t VALUES (?, ?)", []byte{1, 2, 3}, 42); err != nil {
+		t.Fatalf("Exec() with []byte binding failed: %v", err)
+	}
+	if gotQuery != "INSERT INTO t VALUES (?, ?)" {
+		t.Errorf("query = %q", gotQuery)
+	}
+	if !blobIsU8 || string(gotBlob) != "\x01\x02\x03" {
+		t.Errorf("blob binding = %v (Uint8Array=%v), want Uint8Array [1 2 3]", gotBlob, blobIsU8)
+	}
+	if gotNum != 42 {
+		t.Errorf("number binding = %d, want 42", gotNum)
+	}
+}
+
+// TestSQLStorage_Exec_RejectsSlicesAndMaps checks that bindings with no SQL
+// representation are rejected with an error before exec is called, rather
+// than reaching workerd, which silently stringifies them ("1,x",
+// "[object Object]"). []byte is a slice but a valid BLOB binding, so it must
+// still be accepted.
+func TestSQLStorage_Exec_RejectsSlicesAndMaps(t *testing.T) {
+	calls := 0
+	fake := js.ValueOf(map[string]any{})
+	fake.Set("exec", js.FuncOf(func(this js.Value, args []js.Value) any {
+		calls++
+		return js.ValueOf(map[string]any{})
+	}))
+	s := SQLStorageFromJS(fake)
+
+	for name, v := range map[string]any{
+		"[]any":          []any{int64(1), "x"},
+		"[]string":       []string{"a"},
+		"[2]int":         [2]int{1, 2},
+		"map[string]any": map[string]any{"a": int64(1)},
+		"map[string]int": map[string]int{"a": 1},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := s.Exec("INSERT INTO t VALUES (?)", v); err == nil {
+				t.Fatal("Exec accepted the binding, want an error")
+			}
+		})
+	}
+	if calls != 0 {
+		t.Errorf("exec was called %d times despite the rejected bindings", calls)
+	}
+
+	t.Run("[]byte is accepted", func(t *testing.T) {
+		if _, err := s.Exec("INSERT INTO t VALUES (?)", []byte{1}); err != nil {
+			t.Fatalf("Exec rejected a []byte binding: %v", err)
+		}
+		if calls != 1 {
+			t.Errorf("exec was called %d times, want 1", calls)
+		}
+	})
+
+	t.Run("no JS form returns an error, not a panic", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Fatalf("Exec panicked: %v", r)
+			}
+		}()
+		if _, err := s.Exec("INSERT INTO t VALUES (?)", make(chan int)); err == nil {
+			t.Fatal("Exec accepted a chan, want an error")
+		}
+	})
+}

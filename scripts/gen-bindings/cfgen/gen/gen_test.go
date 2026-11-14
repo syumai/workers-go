@@ -180,7 +180,11 @@ func TestGenerateGolden2(t *testing.T) {
 		"Owner    *Parent `js:\"owner\"`",
 		"if !jsrt.IsNil(v.Get(\"opt\")) {",
 		"if o.Opt != nil {",
-		"obj.Set(\"opt\", (*o.Opt).toJS())",
+		// toJS returns an error so a conversion failure in a nested data
+		// type propagates instead of panicking.
+		"func (o Config) toJS() (js.Value, error) {",
+		"jsBox, err := (*o.Opt).toJS()",
+		"obj.Set(\"opt\", jsBox)",
 		// A types: override naming an included data declaration
 		// (Config.altBox -> Box) triggers the same pointer treatment.
 		"AltBox *Box `js:\"altBox\"`",
@@ -404,7 +408,13 @@ func TestGenerateGoldenMapAndRest(t *testing.T) {
 		// spread for the same variadic parameter, level is folded into a
 		// []any ahead of the spread rather than listed separately.
 		"func (x *Registry) Log(level string, args ...any) error {",
-		"jsrt.Call(x.v, \"log\", append([]any{level}, args...)...)",
+		// Each ...any element is converted by jsrt.AnyArgs, whose error (a
+		// value with no JS form) is returned before the call is made.
+		"arg1, err = jsrt.AnyArgs(args)",
+		"jsrt.Call(x.v, \"log\", append([]any{level}, arg1...)...)",
+		"func (x *Registry) Bind(values ...any) error {",
+		"arg0, err = jsrt.AnyArgs(values)",
+		"jsrt.Call(x.v, \"bind\", arg0...)",
 		// A rest parameter whose element resolves to a concrete Go type
 		// becomes ...T, with a []any built ahead of the call, then folded
 		// together with the leading name argument the same way.
@@ -484,7 +494,7 @@ func TestGenerateGolden6(t *testing.T) {
 		"Days float64 `js:\"days\"`",
 		"Retention ConfigRetention `js:\"retention\"`",
 		"func configRetentionFromJS(v js.Value) (ConfigRetention, error) {",
-		"func (o ConfigRetention) toJS() js.Value {",
+		"func (o ConfigRetention) toJS() (js.Value, error) {",
 		// item 2 sub-rule "object-literal union merge": Config.range's
 		// two-branch union of object literals merges into one type, with
 		// the field only present in one branch (end) becoming optional.

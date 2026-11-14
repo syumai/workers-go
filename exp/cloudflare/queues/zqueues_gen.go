@@ -54,7 +54,16 @@ func (x *Queue) Metrics() (QueueMetrics, error) {
 
 // Send
 func (x *Queue) Send(message js.Value, options QueueSendOptions) (QueueSendResponse, error) {
-	p, err := jsrt.Call(x.v, "send", message, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsQueueSendOptions, err := options.toJS()
+		if err != nil {
+			return QueueSendResponse{}, err
+		}
+		arg1 = jsQueueSendOptions
+	}
+	p, err := jsrt.Call(x.v, "send", message, arg1)
 	if err != nil {
 		return QueueSendResponse{}, err
 	}
@@ -73,15 +82,28 @@ func (x *Queue) Send(message js.Value, options QueueSendOptions) (QueueSendRespo
 
 // SendBatch
 func (x *Queue) SendBatch(messages []MessageSendRequest, options QueueSendBatchOptions) (QueueSendBatchResponse, error) {
+	var err error
 	var arg0 js.Value
 	{
 		arr := js.Global().Get("Array").New(len(messages))
 		for i, e := range messages {
-			arr.SetIndex(i, e.toJS())
+			jsMessageSendRequest, err := e.toJS()
+			if err != nil {
+				return QueueSendBatchResponse{}, err
+			}
+			arr.SetIndex(i, jsMessageSendRequest)
 		}
 		arg0 = arr
 	}
-	p, err := jsrt.Call(x.v, "sendBatch", arg0, options.toJS())
+	var arg1 js.Value
+	{
+		jsQueueSendBatchOptions, err := options.toJS()
+		if err != nil {
+			return QueueSendBatchResponse{}, err
+		}
+		arg1 = jsQueueSendBatchOptions
+	}
+	p, err := jsrt.Call(x.v, "sendBatch", arg0, arg1)
 	if err != nil {
 		return QueueSendBatchResponse{}, err
 	}
@@ -123,7 +145,7 @@ func messageSendRequestFromJS(v js.Value) (MessageSendRequest, error) {
 	return out, nil
 }
 
-func (o MessageSendRequest) toJS() js.Value {
+func (o MessageSendRequest) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if !jsrt.IsNil(o.Body) {
 		obj.Set("body", o.Body)
@@ -134,7 +156,7 @@ func (o MessageSendRequest) toJS() js.Value {
 	if o.DelaySeconds != 0 {
 		obj.Set("delaySeconds", o.DelaySeconds)
 	}
-	return obj
+	return obj, nil
 }
 
 // QueueSendOptions
@@ -158,7 +180,7 @@ func queueSendOptionsFromJS(v js.Value) (QueueSendOptions, error) {
 	return out, nil
 }
 
-func (o QueueSendOptions) toJS() js.Value {
+func (o QueueSendOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ContentType != "" {
 		obj.Set("contentType", string(o.ContentType))
@@ -166,7 +188,7 @@ func (o QueueSendOptions) toJS() js.Value {
 	if o.DelaySeconds != 0 {
 		obj.Set("delaySeconds", o.DelaySeconds)
 	}
-	return obj
+	return obj, nil
 }
 
 // QueueSendBatchOptions
@@ -184,12 +206,12 @@ func queueSendBatchOptionsFromJS(v js.Value) (QueueSendBatchOptions, error) {
 	return out, nil
 }
 
-func (o QueueSendBatchOptions) toJS() js.Value {
+func (o QueueSendBatchOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.DelaySeconds != 0 {
 		obj.Set("delaySeconds", o.DelaySeconds)
 	}
-	return obj
+	return obj, nil
 }
 
 // QueueContentType
@@ -219,12 +241,16 @@ func queueSendResponseFromJS(v js.Value) (QueueSendResponse, error) {
 	return out, nil
 }
 
-func (o QueueSendResponse) toJS() js.Value {
+func (o QueueSendResponse) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if true {
-		obj.Set("metadata", o.Metadata.toJS())
+		jsQueueSendMetadata, err := o.Metadata.toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("metadata", jsQueueSendMetadata)
 	}
-	return obj
+	return obj, nil
 }
 
 // QueueSendBatchResponse
@@ -244,12 +270,16 @@ func queueSendBatchResponseFromJS(v js.Value) (QueueSendBatchResponse, error) {
 	return out, nil
 }
 
-func (o QueueSendBatchResponse) toJS() js.Value {
+func (o QueueSendBatchResponse) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if true {
-		obj.Set("metadata", o.Metadata.toJS())
+		jsQueueSendBatchMetadata, err := o.Metadata.toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("metadata", jsQueueSendBatchMetadata)
 	}
-	return obj
+	return obj, nil
 }
 
 // QueueSendMetadata
@@ -269,12 +299,16 @@ func queueSendMetadataFromJS(v js.Value) (QueueSendMetadata, error) {
 	return out, nil
 }
 
-func (o QueueSendMetadata) toJS() js.Value {
+func (o QueueSendMetadata) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if true {
-		obj.Set("metrics", o.Metrics.toJS())
+		jsQueueSendMetrics, err := o.Metrics.toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("metrics", jsQueueSendMetrics)
 	}
-	return obj
+	return obj, nil
 }
 
 // QueueSendBatchMetadata
@@ -294,12 +328,16 @@ func queueSendBatchMetadataFromJS(v js.Value) (QueueSendBatchMetadata, error) {
 	return out, nil
 }
 
-func (o QueueSendBatchMetadata) toJS() js.Value {
+func (o QueueSendBatchMetadata) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if true {
-		obj.Set("metrics", o.Metrics.toJS())
+		jsQueueSendBatchMetrics, err := o.Metrics.toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("metrics", jsQueueSendBatchMetrics)
 	}
-	return obj
+	return obj, nil
 }
 
 // QueueSendMetrics
@@ -325,7 +363,7 @@ func queueSendMetricsFromJS(v js.Value) (QueueSendMetrics, error) {
 	return out, nil
 }
 
-func (o QueueSendMetrics) toJS() js.Value {
+func (o QueueSendMetrics) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.BacklogCount != 0 {
 		obj.Set("backlogCount", o.BacklogCount)
@@ -336,7 +374,7 @@ func (o QueueSendMetrics) toJS() js.Value {
 	if !o.OldestMessageTimestamp.IsZero() {
 		obj.Set("oldestMessageTimestamp", jsrt.TimeToDate(o.OldestMessageTimestamp))
 	}
-	return obj
+	return obj, nil
 }
 
 // QueueSendBatchMetrics
@@ -362,7 +400,7 @@ func queueSendBatchMetricsFromJS(v js.Value) (QueueSendBatchMetrics, error) {
 	return out, nil
 }
 
-func (o QueueSendBatchMetrics) toJS() js.Value {
+func (o QueueSendBatchMetrics) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.BacklogCount != 0 {
 		obj.Set("backlogCount", o.BacklogCount)
@@ -373,7 +411,7 @@ func (o QueueSendBatchMetrics) toJS() js.Value {
 	if !o.OldestMessageTimestamp.IsZero() {
 		obj.Set("oldestMessageTimestamp", jsrt.TimeToDate(o.OldestMessageTimestamp))
 	}
-	return obj
+	return obj, nil
 }
 
 // QueueMetrics
@@ -399,7 +437,7 @@ func queueMetricsFromJS(v js.Value) (QueueMetrics, error) {
 	return out, nil
 }
 
-func (o QueueMetrics) toJS() js.Value {
+func (o QueueMetrics) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.BacklogCount != 0 {
 		obj.Set("backlogCount", o.BacklogCount)
@@ -410,5 +448,5 @@ func (o QueueMetrics) toJS() js.Value {
 	if !o.OldestMessageTimestamp.IsZero() {
 		obj.Set("oldestMessageTimestamp", jsrt.TimeToDate(o.OldestMessageTimestamp))
 	}
-	return obj
+	return obj, nil
 }

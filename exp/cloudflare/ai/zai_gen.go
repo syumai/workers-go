@@ -85,7 +85,16 @@ func (x *Ai) AIGatewayLogID() string {
 
 // Models
 func (x *Ai) Models(params AiModelsSearchParams) ([]AiModelsSearchObject, error) {
-	p, err := jsrt.Call(x.v, "models", params.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsAiModelsSearchParams, err := params.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg0 = jsAiModelsSearchParams
+	}
+	p, err := jsrt.Call(x.v, "models", arg0)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +190,7 @@ func aiOptionsFromJS(v js.Value) (AiOptions, error) {
 	return out, nil
 }
 
-func (o AiOptions) toJS() js.Value {
+func (o AiOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.QueueRequest {
 		obj.Set("queueRequest", o.QueueRequest)
@@ -197,7 +206,11 @@ func (o AiOptions) toJS() js.Value {
 		obj.Set("tags", arr)
 	}
 	if o.Gateway != nil {
-		obj.Set("gateway", (*o.Gateway).toJS())
+		jsGatewayOptions, err := (*o.Gateway).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("gateway", jsGatewayOptions)
 	}
 	if o.ReturnRawResponse {
 		obj.Set("returnRawResponse", o.ReturnRawResponse)
@@ -211,7 +224,7 @@ func (o AiOptions) toJS() js.Value {
 	if !jsrt.IsNil(o.Signal) {
 		obj.Set("signal", o.Signal)
 	}
-	return obj
+	return obj, nil
 }
 
 // AiTextGenerationInput
@@ -333,7 +346,7 @@ func aiTextGenerationInputFromJS(v js.Value) (AiTextGenerationInput, error) {
 	return out, nil
 }
 
-func (o AiTextGenerationInput) toJS() js.Value {
+func (o AiTextGenerationInput) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Prompt != "" {
 		obj.Set("prompt", o.Prompt)
@@ -371,12 +384,20 @@ func (o AiTextGenerationInput) toJS() js.Value {
 	if len(o.Messages) > 0 {
 		arr := js.Global().Get("Array").New(len(o.Messages))
 		for i, e := range o.Messages {
-			arr.SetIndex(i, e.toJS())
+			jsRoleScopedChatInput, err := e.toJS()
+			if err != nil {
+				return js.Value{}, err
+			}
+			arr.SetIndex(i, jsRoleScopedChatInput)
 		}
 		obj.Set("messages", arr)
 	}
 	if o.ResponseFormat != nil {
-		obj.Set("response_format", (*o.ResponseFormat).toJS())
+		jsAiTextGenerationResponseFormat, err := (*o.ResponseFormat).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("response_format", jsAiTextGenerationResponseFormat)
 	}
 	if !jsrt.IsNil(o.Tools) {
 		obj.Set("tools", o.Tools)
@@ -384,11 +405,15 @@ func (o AiTextGenerationInput) toJS() js.Value {
 	if len(o.Functions) > 0 {
 		arr := js.Global().Get("Array").New(len(o.Functions))
 		for i, e := range o.Functions {
-			arr.SetIndex(i, e.toJS())
+			jsAiTextGenerationFunctionsInput, err := e.toJS()
+			if err != nil {
+				return js.Value{}, err
+			}
+			arr.SetIndex(i, jsAiTextGenerationFunctionsInput)
 		}
 		obj.Set("functions", arr)
 	}
-	return obj
+	return obj, nil
 }
 
 // AiTextGenerationOutput
@@ -424,7 +449,7 @@ func aiTextGenerationOutputFromJS(v js.Value) (AiTextGenerationOutput, error) {
 	return out, nil
 }
 
-func (o AiTextGenerationOutput) toJS() js.Value {
+func (o AiTextGenerationOutput) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Response != "" {
 		obj.Set("response", o.Response)
@@ -433,9 +458,13 @@ func (o AiTextGenerationOutput) toJS() js.Value {
 		obj.Set("tool_calls", o.ToolCalls)
 	}
 	if o.Usage != nil {
-		obj.Set("usage", (*o.Usage).toJS())
+		jsUsageTags, err := (*o.Usage).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("usage", jsUsageTags)
 	}
-	return obj
+	return obj, nil
 }
 
 // RoleScopedChatInput
@@ -461,7 +490,7 @@ func roleScopedChatInputFromJS(v js.Value) (RoleScopedChatInput, error) {
 	return out, nil
 }
 
-func (o RoleScopedChatInput) toJS() js.Value {
+func (o RoleScopedChatInput) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Role != "" {
 		obj.Set("role", o.Role)
@@ -472,7 +501,7 @@ func (o RoleScopedChatInput) toJS() js.Value {
 	if o.Name != "" {
 		obj.Set("name", o.Name)
 	}
-	return obj
+	return obj, nil
 }
 
 // AiTextEmbeddingsInput
@@ -491,7 +520,7 @@ func aiTextEmbeddingsInputFromJS(v js.Value) (AiTextEmbeddingsInput, error) {
 	return out, nil
 }
 
-func (o AiTextEmbeddingsInput) toJS() js.Value {
+func (o AiTextEmbeddingsInput) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if len(o.Text) > 0 {
 		arr := js.Global().Get("Array").New(len(o.Text))
@@ -500,7 +529,7 @@ func (o AiTextEmbeddingsInput) toJS() js.Value {
 		}
 		obj.Set("text", arr)
 	}
-	return obj
+	return obj, nil
 }
 
 // AiTextEmbeddingsOutput
@@ -529,7 +558,7 @@ func aiTextEmbeddingsOutputFromJS(v js.Value) (AiTextEmbeddingsOutput, error) {
 	return out, nil
 }
 
-func (o AiTextEmbeddingsOutput) toJS() js.Value {
+func (o AiTextEmbeddingsOutput) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if len(o.Shape) > 0 {
 		arr := js.Global().Get("Array").New(len(o.Shape))
@@ -549,7 +578,7 @@ func (o AiTextEmbeddingsOutput) toJS() js.Value {
 		}
 		obj.Set("data", arr)
 	}
-	return obj
+	return obj, nil
 }
 
 // AiModelsSearchParams
@@ -603,7 +632,7 @@ func aiModelsSearchParamsFromJS(v js.Value) (AiModelsSearchParams, error) {
 	return out, nil
 }
 
-func (o AiModelsSearchParams) toJS() js.Value {
+func (o AiModelsSearchParams) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Author != "" {
 		obj.Set("author", o.Author)
@@ -626,7 +655,7 @@ func (o AiModelsSearchParams) toJS() js.Value {
 	if o.Task != "" {
 		obj.Set("task", o.Task)
 	}
-	return obj
+	return obj, nil
 }
 
 // AiModelsSearchObject
@@ -680,7 +709,7 @@ func aiModelsSearchObjectFromJS(v js.Value) (AiModelsSearchObject, error) {
 	return out, nil
 }
 
-func (o AiModelsSearchObject) toJS() js.Value {
+func (o AiModelsSearchObject) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ID != "" {
 		obj.Set("id", o.ID)
@@ -695,7 +724,11 @@ func (o AiModelsSearchObject) toJS() js.Value {
 		obj.Set("description", o.Description)
 	}
 	if true {
-		obj.Set("task", o.Task.toJS())
+		jsAIModelsSearchObjectTask, err := o.Task.toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("task", jsAIModelsSearchObjectTask)
 	}
 	if len(o.Tags) > 0 {
 		arr := js.Global().Get("Array").New(len(o.Tags))
@@ -707,11 +740,15 @@ func (o AiModelsSearchObject) toJS() js.Value {
 	if len(o.Properties) > 0 {
 		arr := js.Global().Get("Array").New(len(o.Properties))
 		for i, e := range o.Properties {
-			arr.SetIndex(i, e.toJS())
+			jsAIModelsSearchObjectProperties, err := e.toJS()
+			if err != nil {
+				return js.Value{}, err
+			}
+			arr.SetIndex(i, jsAIModelsSearchObjectProperties)
 		}
 		obj.Set("properties", arr)
 	}
-	return obj
+	return obj, nil
 }
 
 // UsageTags
@@ -735,7 +772,7 @@ func usageTagsFromJS(v js.Value) (UsageTags, error) {
 	return out, nil
 }
 
-func (o UsageTags) toJS() js.Value {
+func (o UsageTags) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.PromptTokens != 0 {
 		obj.Set("prompt_tokens", o.PromptTokens)
@@ -746,7 +783,7 @@ func (o UsageTags) toJS() js.Value {
 	if o.TotalTokens != 0 {
 		obj.Set("total_tokens", o.TotalTokens)
 	}
-	return obj
+	return obj, nil
 }
 
 // GatewayOptions
@@ -821,7 +858,7 @@ func gatewayOptionsFromJS(v js.Value) (GatewayOptions, error) {
 	return out, nil
 }
 
-func (o GatewayOptions) toJS() js.Value {
+func (o GatewayOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ID != "" {
 		obj.Set("id", o.ID)
@@ -838,7 +875,11 @@ func (o GatewayOptions) toJS() js.Value {
 	if len(o.Metadata) > 0 {
 		m := jsrt.NewObject()
 		for k, v := range o.Metadata {
-			m.Set(k, v)
+			jv, err := jsrt.AnyToJS(v)
+			if err != nil {
+				return js.Value{}, err
+			}
+			m.Set(k, jv)
 		}
 		obj.Set("metadata", m)
 	}
@@ -852,9 +893,13 @@ func (o GatewayOptions) toJS() js.Value {
 		obj.Set("requestTimeoutMs", o.RequestTimeoutMs)
 	}
 	if o.Retries != nil {
-		obj.Set("retries", (*o.Retries).toJS())
+		jsGatewayRetries, err := (*o.Retries).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("retries", jsGatewayRetries)
 	}
-	return obj
+	return obj, nil
 }
 
 // GatewayRetries
@@ -884,7 +929,7 @@ func gatewayRetriesFromJS(v js.Value) (GatewayRetries, error) {
 	return out, nil
 }
 
-func (o GatewayRetries) toJS() js.Value {
+func (o GatewayRetries) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.MaxAttempts != 0 {
 		obj.Set("maxAttempts", o.MaxAttempts)
@@ -895,7 +940,7 @@ func (o GatewayRetries) toJS() js.Value {
 	if o.Backoff != "" {
 		obj.Set("backoff", o.Backoff)
 	}
-	return obj
+	return obj, nil
 }
 
 // AiTextGenerationResponseFormat
@@ -917,7 +962,7 @@ func aiTextGenerationResponseFormatFromJS(v js.Value) (AiTextGenerationResponseF
 	return out, nil
 }
 
-func (o AiTextGenerationResponseFormat) toJS() js.Value {
+func (o AiTextGenerationResponseFormat) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Type != "" {
 		obj.Set("type", o.Type)
@@ -925,7 +970,7 @@ func (o AiTextGenerationResponseFormat) toJS() js.Value {
 	if !jsrt.IsNil(o.JSONSchema) {
 		obj.Set("json_schema", o.JSONSchema)
 	}
-	return obj
+	return obj, nil
 }
 
 // AiTextGenerationFunctionsInput
@@ -945,7 +990,7 @@ func aiTextGenerationFunctionsInputFromJS(v js.Value) (AiTextGenerationFunctions
 	return out, nil
 }
 
-func (o AiTextGenerationFunctionsInput) toJS() js.Value {
+func (o AiTextGenerationFunctionsInput) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Name != "" {
 		obj.Set("name", o.Name)
@@ -953,7 +998,7 @@ func (o AiTextGenerationFunctionsInput) toJS() js.Value {
 	if o.Code != "" {
 		obj.Set("code", o.Code)
 	}
-	return obj
+	return obj, nil
 }
 
 // AIModelsSearchObjectTask
@@ -977,7 +1022,7 @@ func aIModelsSearchObjectTaskFromJS(v js.Value) (AIModelsSearchObjectTask, error
 	return out, nil
 }
 
-func (o AIModelsSearchObjectTask) toJS() js.Value {
+func (o AIModelsSearchObjectTask) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ID != "" {
 		obj.Set("id", o.ID)
@@ -988,7 +1033,7 @@ func (o AIModelsSearchObjectTask) toJS() js.Value {
 	if o.Description != "" {
 		obj.Set("description", o.Description)
 	}
-	return obj
+	return obj, nil
 }
 
 // AIModelsSearchObjectProperties
@@ -1008,7 +1053,7 @@ func aIModelsSearchObjectPropertiesFromJS(v js.Value) (AIModelsSearchObjectPrope
 	return out, nil
 }
 
-func (o AIModelsSearchObjectProperties) toJS() js.Value {
+func (o AIModelsSearchObjectProperties) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.PropertyID != "" {
 		obj.Set("property_id", o.PropertyID)
@@ -1016,5 +1061,5 @@ func (o AIModelsSearchObjectProperties) toJS() js.Value {
 	if o.Value != "" {
 		obj.Set("value", o.Value)
 	}
-	return obj
+	return obj, nil
 }

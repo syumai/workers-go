@@ -193,7 +193,7 @@ func traceItemFromJS(v js.Value) (TraceItem, error) {
 	return out, nil
 }
 
-func (o TraceItem) toJS() js.Value {
+func (o TraceItem) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if !jsrt.IsNil(o.Event) {
 		obj.Set("event", o.Event)
@@ -204,21 +204,33 @@ func (o TraceItem) toJS() js.Value {
 	if len(o.Logs) > 0 {
 		arr := js.Global().Get("Array").New(len(o.Logs))
 		for i, e := range o.Logs {
-			arr.SetIndex(i, e.toJS())
+			jsTraceLog, err := e.toJS()
+			if err != nil {
+				return js.Value{}, err
+			}
+			arr.SetIndex(i, jsTraceLog)
 		}
 		obj.Set("logs", arr)
 	}
 	if len(o.Exceptions) > 0 {
 		arr := js.Global().Get("Array").New(len(o.Exceptions))
 		for i, e := range o.Exceptions {
-			arr.SetIndex(i, e.toJS())
+			jsTraceException, err := e.toJS()
+			if err != nil {
+				return js.Value{}, err
+			}
+			arr.SetIndex(i, jsTraceException)
 		}
 		obj.Set("exceptions", arr)
 	}
 	if len(o.DiagnosticsChannelEvents) > 0 {
 		arr := js.Global().Get("Array").New(len(o.DiagnosticsChannelEvents))
 		for i, e := range o.DiagnosticsChannelEvents {
-			arr.SetIndex(i, e.toJS())
+			jsTraceDiagnosticChannelEvent, err := e.toJS()
+			if err != nil {
+				return js.Value{}, err
+			}
+			arr.SetIndex(i, jsTraceDiagnosticChannelEvent)
 		}
 		obj.Set("diagnosticsChannelEvents", arr)
 	}
@@ -229,7 +241,11 @@ func (o TraceItem) toJS() js.Value {
 		obj.Set("entrypoint", o.Entrypoint)
 	}
 	if o.ScriptVersion != nil {
-		obj.Set("scriptVersion", (*o.ScriptVersion).toJS())
+		jsScriptVersion, err := (*o.ScriptVersion).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("scriptVersion", jsScriptVersion)
 	}
 	if o.DispatchNamespace != "" {
 		obj.Set("dispatchNamespace", o.DispatchNamespace)
@@ -249,7 +265,11 @@ func (o TraceItem) toJS() js.Value {
 		obj.Set("tailAttributes", m)
 	}
 	if o.Preview != nil {
-		obj.Set("preview", (*o.Preview).toJS())
+		jsTracePreviewInfo, err := (*o.Preview).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("preview", jsTracePreviewInfo)
 	}
 	if o.DurableObjectID != "" {
 		obj.Set("durableObjectId", o.DurableObjectID)
@@ -269,7 +289,7 @@ func (o TraceItem) toJS() js.Value {
 	if o.WallTime != 0 {
 		obj.Set("wallTime", o.WallTime)
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceLog
@@ -306,7 +326,7 @@ func traceLogFromJS(v js.Value) (TraceLog, error) {
 	return out, nil
 }
 
-func (o TraceLog) toJS() js.Value {
+func (o TraceLog) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Timestamp != 0 {
 		obj.Set("timestamp", o.Timestamp)
@@ -320,11 +340,15 @@ func (o TraceLog) toJS() js.Value {
 	if len(o.ErrorInfo) > 0 {
 		arr := js.Global().Get("Array").New(len(o.ErrorInfo))
 		for i, e := range o.ErrorInfo {
-			arr.SetIndex(i, e.toJS())
+			jsTraceLogErrorInfo, err := e.toJS()
+			if err != nil {
+				return js.Value{}, err
+			}
+			arr.SetIndex(i, jsTraceLogErrorInfo)
 		}
 		obj.Set("errorInfo", arr)
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceLogErrorInfo
@@ -350,7 +374,7 @@ func traceLogErrorInfoFromJS(v js.Value) (TraceLogErrorInfo, error) {
 	return out, nil
 }
 
-func (o TraceLogErrorInfo) toJS() js.Value {
+func (o TraceLogErrorInfo) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Name != "" {
 		obj.Set("name", o.Name)
@@ -361,7 +385,7 @@ func (o TraceLogErrorInfo) toJS() js.Value {
 	if o.Stack != "" {
 		obj.Set("stack", o.Stack)
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceException
@@ -391,7 +415,7 @@ func traceExceptionFromJS(v js.Value) (TraceException, error) {
 	return out, nil
 }
 
-func (o TraceException) toJS() js.Value {
+func (o TraceException) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Timestamp != 0 {
 		obj.Set("timestamp", o.Timestamp)
@@ -405,7 +429,7 @@ func (o TraceException) toJS() js.Value {
 	if o.Stack != "" {
 		obj.Set("stack", o.Stack)
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceDiagnosticChannelEvent
@@ -429,7 +453,7 @@ func traceDiagnosticChannelEventFromJS(v js.Value) (TraceDiagnosticChannelEvent,
 	return out, nil
 }
 
-func (o TraceDiagnosticChannelEvent) toJS() js.Value {
+func (o TraceDiagnosticChannelEvent) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Timestamp != 0 {
 		obj.Set("timestamp", o.Timestamp)
@@ -440,7 +464,7 @@ func (o TraceDiagnosticChannelEvent) toJS() js.Value {
 	if !jsrt.IsNil(o.Message) {
 		obj.Set("message", o.Message)
 	}
-	return obj
+	return obj, nil
 }
 
 // ScriptVersion
@@ -470,7 +494,7 @@ func scriptVersionFromJS(v js.Value) (ScriptVersion, error) {
 	return out, nil
 }
 
-func (o ScriptVersion) toJS() js.Value {
+func (o ScriptVersion) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ID != "" {
 		obj.Set("id", o.ID)
@@ -481,7 +505,7 @@ func (o ScriptVersion) toJS() js.Value {
 	if o.Message != "" {
 		obj.Set("message", o.Message)
 	}
-	return obj
+	return obj, nil
 }
 
 // TracePreviewInfo
@@ -505,7 +529,7 @@ func tracePreviewInfoFromJS(v js.Value) (TracePreviewInfo, error) {
 	return out, nil
 }
 
-func (o TracePreviewInfo) toJS() js.Value {
+func (o TracePreviewInfo) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ID != "" {
 		obj.Set("id", o.ID)
@@ -516,7 +540,7 @@ func (o TracePreviewInfo) toJS() js.Value {
 	if o.Name != "" {
 		obj.Set("name", o.Name)
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceItemFetchEventInfo
@@ -544,15 +568,19 @@ func traceItemFetchEventInfoFromJS(v js.Value) (TraceItemFetchEventInfo, error) 
 	return out, nil
 }
 
-func (o TraceItemFetchEventInfo) toJS() js.Value {
+func (o TraceItemFetchEventInfo) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Response != nil {
-		obj.Set("response", (*o.Response).toJS())
+		jsTraceItemFetchEventInfoResponse, err := (*o.Response).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("response", jsTraceItemFetchEventInfoResponse)
 	}
 	if o.Request != nil {
 		obj.Set("request", o.Request.JSValue())
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceItemFetchEventInfoRequest
@@ -627,12 +655,12 @@ func traceItemFetchEventInfoResponseFromJS(v js.Value) (TraceItemFetchEventInfoR
 	return out, nil
 }
 
-func (o TraceItemFetchEventInfoResponse) toJS() js.Value {
+func (o TraceItemFetchEventInfoResponse) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Status != 0 {
 		obj.Set("status", o.Status)
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceItemJsRpcEventInfo
@@ -648,12 +676,12 @@ func traceItemJsRpcEventInfoFromJS(v js.Value) (TraceItemJsRpcEventInfo, error) 
 	return out, nil
 }
 
-func (o TraceItemJsRpcEventInfo) toJS() js.Value {
+func (o TraceItemJsRpcEventInfo) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.RpcMethod != "" {
 		obj.Set("rpcMethod", o.RpcMethod)
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceItemConnectEventInfo
@@ -665,9 +693,9 @@ func traceItemConnectEventInfoFromJS(v js.Value) (TraceItemConnectEventInfo, err
 	return out, nil
 }
 
-func (o TraceItemConnectEventInfo) toJS() js.Value {
+func (o TraceItemConnectEventInfo) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
-	return obj
+	return obj, nil
 }
 
 // TraceItemScheduledEventInfo
@@ -687,7 +715,7 @@ func traceItemScheduledEventInfoFromJS(v js.Value) (TraceItemScheduledEventInfo,
 	return out, nil
 }
 
-func (o TraceItemScheduledEventInfo) toJS() js.Value {
+func (o TraceItemScheduledEventInfo) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ScheduledTime != 0 {
 		obj.Set("scheduledTime", o.ScheduledTime)
@@ -695,7 +723,7 @@ func (o TraceItemScheduledEventInfo) toJS() js.Value {
 	if o.Cron != "" {
 		obj.Set("cron", o.Cron)
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceItemAlarmEventInfo
@@ -711,12 +739,12 @@ func traceItemAlarmEventInfoFromJS(v js.Value) (TraceItemAlarmEventInfo, error) 
 	return out, nil
 }
 
-func (o TraceItemAlarmEventInfo) toJS() js.Value {
+func (o TraceItemAlarmEventInfo) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if !o.ScheduledTime.IsZero() {
 		obj.Set("scheduledTime", jsrt.TimeToDate(o.ScheduledTime))
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceItemQueueEventInfo
@@ -736,7 +764,7 @@ func traceItemQueueEventInfoFromJS(v js.Value) (TraceItemQueueEventInfo, error) 
 	return out, nil
 }
 
-func (o TraceItemQueueEventInfo) toJS() js.Value {
+func (o TraceItemQueueEventInfo) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Queue != "" {
 		obj.Set("queue", o.Queue)
@@ -744,7 +772,7 @@ func (o TraceItemQueueEventInfo) toJS() js.Value {
 	if o.BatchSize != 0 {
 		obj.Set("batchSize", o.BatchSize)
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceItemEmailEventInfo
@@ -768,7 +796,7 @@ func traceItemEmailEventInfoFromJS(v js.Value) (TraceItemEmailEventInfo, error) 
 	return out, nil
 }
 
-func (o TraceItemEmailEventInfo) toJS() js.Value {
+func (o TraceItemEmailEventInfo) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.MailFrom != "" {
 		obj.Set("mailFrom", o.MailFrom)
@@ -779,7 +807,7 @@ func (o TraceItemEmailEventInfo) toJS() js.Value {
 	if o.RawSize != 0 {
 		obj.Set("rawSize", o.RawSize)
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceItemTailEventInfo
@@ -802,16 +830,20 @@ func traceItemTailEventInfoFromJS(v js.Value) (TraceItemTailEventInfo, error) {
 	return out, nil
 }
 
-func (o TraceItemTailEventInfo) toJS() js.Value {
+func (o TraceItemTailEventInfo) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if len(o.ConsumedEvents) > 0 {
 		arr := js.Global().Get("Array").New(len(o.ConsumedEvents))
 		for i, e := range o.ConsumedEvents {
-			arr.SetIndex(i, e.toJS())
+			jsTraceItemTailEventInfoTailItem, err := e.toJS()
+			if err != nil {
+				return js.Value{}, err
+			}
+			arr.SetIndex(i, jsTraceItemTailEventInfoTailItem)
 		}
 		obj.Set("consumedEvents", arr)
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceItemTailEventInfoTailItem
@@ -829,12 +861,12 @@ func traceItemTailEventInfoTailItemFromJS(v js.Value) (TraceItemTailEventInfoTai
 	return out, nil
 }
 
-func (o TraceItemTailEventInfoTailItem) toJS() js.Value {
+func (o TraceItemTailEventInfoTailItem) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ScriptName != "" {
 		obj.Set("scriptName", o.ScriptName)
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceItemCustomEventInfo
@@ -846,9 +878,9 @@ func traceItemCustomEventInfoFromJS(v js.Value) (TraceItemCustomEventInfo, error
 	return out, nil
 }
 
-func (o TraceItemCustomEventInfo) toJS() js.Value {
+func (o TraceItemCustomEventInfo) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
-	return obj
+	return obj, nil
 }
 
 // TraceItemHibernatableWebSocketEventInfo
@@ -868,12 +900,16 @@ func traceItemHibernatableWebSocketEventInfoFromJS(v js.Value) (TraceItemHiberna
 	return out, nil
 }
 
-func (o TraceItemHibernatableWebSocketEventInfo) toJS() js.Value {
+func (o TraceItemHibernatableWebSocketEventInfo) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if true {
-		obj.Set("getWebSocketEvent", o.GetWebSocketEvent.toJS())
+		jsTraceItemHibernatableWebSocketEventInfoGetWebSocketEvent, err := o.GetWebSocketEvent.toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("getWebSocketEvent", jsTraceItemHibernatableWebSocketEventInfoGetWebSocketEvent)
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceItemHibernatableWebSocketEventInfoMessage
@@ -889,12 +925,12 @@ func traceItemHibernatableWebSocketEventInfoMessageFromJS(v js.Value) (TraceItem
 	return out, nil
 }
 
-func (o TraceItemHibernatableWebSocketEventInfoMessage) toJS() js.Value {
+func (o TraceItemHibernatableWebSocketEventInfoMessage) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.WebSocketEventType != "" {
 		obj.Set("webSocketEventType", o.WebSocketEventType)
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceItemHibernatableWebSocketEventInfoClose
@@ -918,7 +954,7 @@ func traceItemHibernatableWebSocketEventInfoCloseFromJS(v js.Value) (TraceItemHi
 	return out, nil
 }
 
-func (o TraceItemHibernatableWebSocketEventInfoClose) toJS() js.Value {
+func (o TraceItemHibernatableWebSocketEventInfoClose) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.WebSocketEventType != "" {
 		obj.Set("webSocketEventType", o.WebSocketEventType)
@@ -929,7 +965,7 @@ func (o TraceItemHibernatableWebSocketEventInfoClose) toJS() js.Value {
 	if o.WasClean {
 		obj.Set("wasClean", o.WasClean)
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceItemHibernatableWebSocketEventInfoError
@@ -945,12 +981,12 @@ func traceItemHibernatableWebSocketEventInfoErrorFromJS(v js.Value) (TraceItemHi
 	return out, nil
 }
 
-func (o TraceItemHibernatableWebSocketEventInfoError) toJS() js.Value {
+func (o TraceItemHibernatableWebSocketEventInfoError) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.WebSocketEventType != "" {
 		obj.Set("webSocketEventType", o.WebSocketEventType)
 	}
-	return obj
+	return obj, nil
 }
 
 // TraceItemHibernatableWebSocketEventInfoGetWebSocketEvent
@@ -978,7 +1014,7 @@ func traceItemHibernatableWebSocketEventInfoGetWebSocketEventFromJS(v js.Value) 
 	return out, nil
 }
 
-func (o TraceItemHibernatableWebSocketEventInfoGetWebSocketEvent) toJS() js.Value {
+func (o TraceItemHibernatableWebSocketEventInfoGetWebSocketEvent) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.WebSocketEventType != "" {
 		obj.Set("webSocketEventType", o.WebSocketEventType)
@@ -989,5 +1025,5 @@ func (o TraceItemHibernatableWebSocketEventInfoGetWebSocketEvent) toJS() js.Valu
 	if o.WasClean {
 		obj.Set("wasClean", o.WasClean)
 	}
-	return obj
+	return obj, nil
 }

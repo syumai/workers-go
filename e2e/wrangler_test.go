@@ -354,22 +354,3 @@ func (w *worker) Scheduled(t *testing.T, cron string) (*http.Response, string) {
 	t.Helper()
 	return w.Get(t, "/__scheduled?cron="+url.QueryEscape(cron))
 }
-
-// fixmeEnv is the environment variable that opts in to running tests marked
-// as known-broken. Unset (the default, and what CI uses), those cases are
-// skipped with their reason; set it to any non-empty value to run them and
-// see the failures:
-//
-//	E2E_FIXME=1 go test -tags e2e -count=1 -v ./e2e/...
-const fixmeEnv = "E2E_FIXME"
-
-// skipFixme skips t unless E2E_FIXME is set. Call it at the top of a subtest
-// for behavior that is known to be wrong today, passing why. The test body
-// should still assert the CORRECT behavior, so once the bug is fixed the only
-// edit needed is to delete the skipFixme call (or the row's fixme field).
-func skipFixme(t *testing.T, reason string) {
-	t.Helper()
-	if os.Getenv(fixmeEnv) == "" {
-		t.Skipf("known bug (set %s=1 to run): %s", fixmeEnv, reason)
-	}
-}

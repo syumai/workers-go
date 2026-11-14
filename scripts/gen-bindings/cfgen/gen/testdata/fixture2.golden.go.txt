@@ -173,12 +173,12 @@ func boxFromJS(v js.Value) (Box, error) {
 	return out, nil
 }
 
-func (o Box) toJS() js.Value {
+func (o Box) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Label != "" {
 		obj.Set("label", o.Label)
 	}
-	return obj
+	return obj, nil
 }
 
 // Config Config exercises the nested-data-type pointer rule (tmp/06-codegen-spec.md 1.3): req (required) stays a plain Box; opt (TS `?`) and nullable (`Box | null`) both become *Box, omitted/allocated only when present; owner (an optional handle-type ref) is unaffected, already *Parent.
@@ -241,24 +241,40 @@ func configFromJS(v js.Value) (Config, error) {
 	return out, nil
 }
 
-func (o Config) toJS() js.Value {
+func (o Config) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if true {
-		obj.Set("req", o.Req.toJS())
+		jsBox, err := o.Req.toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("req", jsBox)
 	}
 	if o.Opt != nil {
-		obj.Set("opt", (*o.Opt).toJS())
+		jsBox, err := (*o.Opt).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("opt", jsBox)
 	}
 	if o.Nullable != nil {
-		obj.Set("nullable", (*o.Nullable).toJS())
+		jsBox, err := (*o.Nullable).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("nullable", jsBox)
 	}
 	if o.Owner != nil {
 		obj.Set("owner", o.Owner.JSValue())
 	}
 	if o.AltBox != nil {
-		obj.Set("altBox", (*o.AltBox).toJS())
+		jsBox, err := (*o.AltBox).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("altBox", jsBox)
 	}
-	return obj
+	return obj, nil
 }
 
 // Result Result is a top-level alias union of two object literals, exercising union-data-merge: ok (a literal true/false discriminant in both branches) becomes a required bool; value/error (each present in only one branch) become optional.
@@ -286,7 +302,7 @@ func resultFromJS(v js.Value) (Result, error) {
 	return out, nil
 }
 
-func (o Result) toJS() js.Value {
+func (o Result) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Ok {
 		obj.Set("ok", o.Ok)
@@ -297,7 +313,7 @@ func (o Result) toJS() js.Value {
 	if o.Error != "" {
 		obj.Set("error", o.Error)
 	}
-	return obj
+	return obj, nil
 }
 
 // Bundle Bundle intersects a plain object literal with a ref to Result (itself a union alias), exercising union-merge as an intersection operand (the R2Objects shape).
@@ -329,7 +345,7 @@ func bundleFromJS(v js.Value) (Bundle, error) {
 	return out, nil
 }
 
-func (o Bundle) toJS() js.Value {
+func (o Bundle) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Tag != "" {
 		obj.Set("tag", o.Tag)
@@ -343,5 +359,5 @@ func (o Bundle) toJS() js.Value {
 	if o.Error != "" {
 		obj.Set("error", o.Error)
 	}
-	return obj
+	return obj, nil
 }

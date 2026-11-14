@@ -67,6 +67,10 @@ func allMetadataValues() map[string]any {
 		"time":     time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
 		"jsvalue":  js.ValueOf("raw"),
 		"nestedby": map[string]any{"b": []byte{9}},
+		// No JS representation: the generated call must return an error
+		// rather than panic outside jsrt.Call's recover.
+		"unconvertible":        make(chan int),
+		"unconvertible_nested": map[string]any{"k": []any{func() {}}},
 	}
 }
 

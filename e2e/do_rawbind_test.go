@@ -40,19 +40,10 @@ type rawBindExpectation struct {
 	// orNull additionally accepts a stored NULL (a nil []byte may
 	// reasonably map to either the empty BLOB or NULL).
 	orNull bool
-	// fixme, when non-empty, marks a case that currently fails because of a
-	// known bug; the text says why. The case still asserts the correct
-	// result. It is skipped unless E2E_FIXME is set. Delete the field once
-	// the bug is fixed.
-	fixme string
 }
 
 // rawBindCases are what each Go value must store when bound through the
-// generated SQLStorage.Exec. Cases with a fixme reason fail on main -- js.ValueOf
-// panics on []byte, time.Time and []string, and []any / map[string]any are
-// silently stringified instead of rejected -- and are skipped unless E2E_FIXME
-// is set; delete the fixme field when the conversion is fixed. All other cases
-// pass today and must keep passing.
+// generated SQLStorage.Exec.
 var rawBindCases = map[string]rawBindExpectation{
 	"nil":        {wantTypeOf: "null"},
 	"string":     {wantTypeOf: "text", wantBytes: []byte("text")},
@@ -68,13 +59,12 @@ var rawBindCases = map[string]rawBindExpectation{
 	// JS has one number type, so Go integers cross as doubles and SQLite
 	// stores 42 as REAL "42.0". Confirmed identical in plain JS; this is
 	// workerd, not workers-go.
-	"int64": {wantTypeOf: "real", wantBytes: []byte("42.0")},
-	"int":   {wantTypeOf: "real", wantBytes: []byte("42.0")},
-	// FIXME: these fail with "ValueOf: invalid value" today.
-	"bytes":       {wantTypeOf: "blob", wantBytes: []byte{0x00, 0x01, 0xff, 'h', 'i'}, fixme: "[]byte panics in js.ValueOf"},
-	"bytes_empty": {wantTypeOf: "blob", wantBytes: []byte{}, fixme: "[]byte panics in js.ValueOf"},
+	"int64":       {wantTypeOf: "real", wantBytes: []byte("42.0")},
+	"int":         {wantTypeOf: "real", wantBytes: []byte("42.0")},
+	"bytes":       {wantTypeOf: "blob", wantBytes: []byte{0x00, 0x01, 0xff, 'h', 'i'}},
+	"bytes_empty": {wantTypeOf: "blob", wantBytes: []byte{}},
 	// A nil []byte may reasonably be the empty BLOB or NULL.
-	"bytes_nil": {wantTypeOf: "blob", wantBytes: []byte{}, orNull: true, fixme: "[]byte panics in js.ValueOf"},
+	"bytes_nil": {wantTypeOf: "blob", wantBytes: []byte{}, orNull: true},
 
 	// Slices and maps have no faithful SQL representation. Left alone they
 	// reach workerd as a JS Array / plain object, which SqlStorage silently
@@ -82,13 +72,13 @@ var rawBindCases = map[string]rawBindExpectation{
 	// JSON) is wrong for generated code, since it cannot know the column is
 	// meant to hold JSON; the caller must decide. So the correct behavior is
 	// to return an error and store nothing.
-	"any_slice": {wantRejected: true, fixme: "[]any is silently stringified to \"1,x\" instead of rejected"},
-	"map":       {wantRejected: true, fixme: "map[string]any is silently stringified to \"[object Object]\" instead of rejected"},
+	"any_slice": {wantRejected: true},
+	"map":       {wantRejected: true},
 	// How a time is stored is a design decision; it just must not crash.
-	"time": {mustNotFail: true, fixme: "time.Time panics in js.ValueOf"},
+	"time": {mustNotFail: true},
 	// A []string is not an SQL value either, so it must be rejected with a
 	// deliberate error rather than the js.ValueOf panic.
-	"string_slice": {wantRejected: true, fixme: "[]string panics in js.ValueOf instead of being rejected"},
+	"string_slice": {wantRejected: true},
 }
 
 // runRawBind binds each Go value in cases through the generated
@@ -98,9 +88,6 @@ var rawBindCases = map[string]rawBindExpectation{
 func runRawBind(t *testing.T, w *worker, cases map[string]rawBindExpectation) {
 	for name, want := range cases {
 		t.Run(name, func(t *testing.T) {
-			if want.fixme != "" {
-				skipFixme(t, want.fixme)
-			}
 			q := url.Values{}
 			q.Set("case", name)
 			q.Set("name", "e2e-rawbind-"+name)

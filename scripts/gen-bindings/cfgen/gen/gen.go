@@ -331,6 +331,10 @@ func (p *Package) genMethod(sb *strings.Builder, d *ir.Decl, structName string, 
 	var params []string
 	var argExprs []string
 	var argBlocks [][]string
+	// fallibleArgs holds, in parameter order, every argument whose Go -> JS
+	// conversion can fail (io.ReaderAsArrayBuffer, jsrt.AnyArgs, a nested
+	// data type's toJS, a map[string]any). They are emitted ahead of the
+	// call by writeFallibleArgs, which declares err once.
 	var fallibleArgs []fallibleArg
 	// restExpr, if non-empty, is a Go slice expression (the rest parameter
 	// itself, or a built []any) spread as the final jsrt.Call argument via
@@ -356,14 +360,24 @@ func (p *Package) genMethod(sb *strings.Builder, d *ir.Decl, structName string, 
 			if elemConv.GoType == "js.Value" {
 				// An element that itself maps to a raw js.Value (e.g. the
 				// bindings ...any of SqlStorage.exec) is instead given the
-				// Go type any: jsrt.Call already takes ...any, so the
-				// variadic parameter spreads straight through with no
-				// per-element conversion, and callers can pass plain Go
-				// values (js.ValueOf handles those) instead of having to
-				// wrap each one as a js.Value themselves.
+				// Go type any, so callers can pass plain Go values instead
+				// of wrapping each one as a js.Value themselves. Each element
+				// is converted by jsrt.AnyArgs (jsrt.AnyToJS per element),
+				// which maps []byte to a Uint8Array and time.Time to a Date
+				// and returns an error, rather than letting js.ValueOf
+				// panic, for a value with no JS form. Nothing here assumes
+				// what the parameter means: a method that needs stricter
+				// rules (SqlStorage.exec rejects slices and maps) wraps the
+				// generated method by hand; see the rename: overrides.
+				p.useImport("jsrt")
 				params = append(params, pname+" ...any")
-				restExpr = pname
+				argVar := fmt.Sprintf("arg%d", i)
+				fallibleArgs = append(fallibleArgs, fallibleArg{name: argVar, goType: "[]any", call: "jsrt.AnyArgs(" + pname + ")"})
+				restExpr = argVar
 				continue
+			}
+			if elemConv.isFallibleToJS() {
+				return fmt.Errorf("%s.%s: rest parameter %q: element type %s has a fallible Go -> JS conversion, which is not supported", d.Name, m.Name, prm.Name, elemConv.GoType)
 			}
 			params = append(params, pname+" ..."+elemConv.GoType)
 			argVar := fmt.Sprintf("arg%d", i)
@@ -391,7 +405,17 @@ func (p *Package) genMethod(sb *strings.Builder, d *ir.Decl, structName string, 
 			// from this method. The call expression is emitted once the
 			// return type's zero value is known.
 			argVar := fmt.Sprintf("arg%d", i)
-			fallibleArgs = append(fallibleArgs, fallibleArg{name: argVar, call: conv.ToJSErr(pname)})
+			fallibleArgs = append(fallibleArgs, fallibleArg{name: argVar, goType: "js.Value", call: conv.ToJSErr(pname)})
+			argExprs = append(argExprs, argVar)
+			continue
+		}
+		if conv.isFallibleToJS() {
+			// The conversion can fail (a nested data type's toJS, or a
+			// map[string]any holding an unconvertible value): emit its
+			// statements ahead of the call, where they can return the
+			// error. They are emitted after writeFallibleArgs declares err.
+			argVar := fmt.Sprintf("arg%d", i)
+			fallibleArgs = append(fallibleArgs, fallibleArg{name: argVar, goType: "js.Value", conv: &conv, src: pname})
 			argExprs = append(argExprs, argVar)
 			continue
 		}
@@ -628,6 +652,9 @@ func (p *Package) genCallbackMethod(sb *strings.Builder, d *ir.Decl, structName 
 	if isVoid {
 		sb.WriteString("\t\treturn js.Undefined(), nil\n")
 	} else {
+		if retConv.isFallibleToJS() {
+			return fmt.Errorf("%s.%s: callback result type %s has a fallible Go -> JS conversion, which is not supported", d.Name, m.Name, retConv.GoType)
+		}
 		pre, expr := retConv.ToJS("result")
 		sb.WriteString(indentBlock(pre, 2))
 		sb.WriteString("\t\treturn " + expr + ", nil\n")
@@ -763,7 +790,7 @@ func (p *Package) genDataFromJS(sb *strings.Builder, d *ir.Decl, structName stri
 
 func (p *Package) genDataToJS(sb *strings.Builder, d *ir.Decl, structName string, members []ir.Member) error {
 	p.useImport("jsrt")
-	fmt.Fprintf(sb, "func (o %s) toJS() js.Value {\n\tobj := jsrt.NewObject()\n", structName)
+	fmt.Fprintf(sb, "func (o %s) toJS() (js.Value, error) {\n\tobj := jsrt.NewObject()\n", structName)
 	for _, m := range members {
 		if m.Kind != "property" {
 			continue
@@ -780,14 +807,15 @@ func (p *Package) genDataToJS(sb *strings.Builder, d *ir.Decl, structName string
 			return fmt.Errorf("%s.%s: this types override can only be used on a method parameter", d.Name, m.Name)
 		}
 		srcExpr := "o." + fieldName
-		pre, valueExpr := conv.ToJS(srcExpr)
+		// js.Value{} is the zero value returned alongside a conversion error.
+		pre, valueExpr := conv.toJSStmts(srcExpr, "js.Value{}")
 		cond := conv.OmitIfZero(srcExpr)
 		sb.WriteString("\tif " + cond + " {\n")
 		sb.WriteString(indentBlock(pre, 2))
 		fmt.Fprintf(sb, "\t\tobj.Set(%q, %s)\n", m.Name, valueExpr)
 		sb.WriteString("\t}\n")
 	}
-	sb.WriteString("\treturn obj\n}\n\n")
+	sb.WriteString("\treturn obj, nil\n}\n\n")
 	return nil
 }
 
@@ -823,11 +851,16 @@ func (p *Package) genAliasType(sb *strings.Builder, d *ir.Decl) error {
 	return nil
 }
 
-// fallibleArg is a method argument whose Go-to-JS conversion returns
-// (js.Value, error), emitted before jsrt.Call.
+// fallibleArg is a method argument whose Go -> JS conversion can fail, so it
+// must be computed ahead of jsrt.Call where the error can be returned. Either
+// call is a (goType, error) expression (io.ReaderAsArrayBuffer, jsrt.AnyArgs),
+// or conv is a Fallible exprConv converting the Go expression src.
 type fallibleArg struct {
-	name string
-	call string
+	name   string
+	goType string
+	call   string
+	conv   *exprConv
+	src    string
 }
 
 func writeFallibleArgs(sb *strings.Builder, args []fallibleArg, failReturn string) {
@@ -836,14 +869,25 @@ func writeFallibleArgs(sb *strings.Builder, args []fallibleArg, failReturn strin
 	}
 	sb.WriteString("\tvar err error\n")
 	for _, a := range args {
-		fmt.Fprintf(sb, "\tvar %s js.Value\n", a.name)
-		fmt.Fprintf(sb, "\t%s, err = %s\n", a.name, a.call)
-		if failReturn == "" {
-			sb.WriteString("\tif err != nil {\n\t\treturn err\n\t}\n")
+		if a.conv != nil {
+			// The conversion's own statements declare an "err" via ":=" in
+			// their own block, so scope them to a block that assigns the
+			// outer variable.
+			pre, expr := a.conv.ToJSFail(a.src, failReturn)
+			fmt.Fprintf(sb, "\tvar %s %s\n\t{\n", a.name, a.goType)
+			sb.WriteString(indentBlock(pre, 2))
+			fmt.Fprintf(sb, "\t\t%s = %s\n\t}\n", a.name, expr)
 			continue
 		}
-		fmt.Fprintf(sb, "\tif err != nil {\n\t\treturn %s, err\n\t}\n", failReturn)
+		fmt.Fprintf(sb, "\tvar %s %s\n", a.name, a.goType)
+		fmt.Fprintf(sb, "\t%s, err = %s\n", a.name, a.call)
+		sb.WriteString("\t" + returnErrIf(failReturn) + "\n")
 	}
+}
+
+// returnErrIf is an "if err != nil { return ... }" statement.
+func returnErrIf(failReturn string) string {
+	return "if err != nil {\n\t\t" + returnErr(failReturn) + "\n\t}"
 }
 
 func indentBlock(lines []string, level int) string {

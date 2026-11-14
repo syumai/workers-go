@@ -56,7 +56,16 @@ func (x *R2Bucket) Head(key string) (*R2Object, error) {
 
 // Get
 func (x *R2Bucket) Get(key string, options R2GetOptions) (*R2ObjectBody, error) {
-	p, err := jsrt.Call(x.v, "get", key, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsR2GetOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg1 = jsR2GetOptions
+	}
+	p, err := jsrt.Call(x.v, "get", key, arg1)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +82,16 @@ func (x *R2Bucket) Get(key string, options R2GetOptions) (*R2ObjectBody, error) 
 
 // Put
 func (x *R2Bucket) Put(key string, value js.Value, options R2PutOptions) (*R2Object, error) {
-	p, err := jsrt.Call(x.v, "put", key, value, options.toJS())
+	var err error
+	var arg2 js.Value
+	{
+		jsR2PutOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg2 = jsR2PutOptions
+	}
+	p, err := jsrt.Call(x.v, "put", key, value, arg2)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +106,16 @@ func (x *R2Bucket) Put(key string, value js.Value, options R2PutOptions) (*R2Obj
 
 // CreateMultipartUpload
 func (x *R2Bucket) CreateMultipartUpload(key string, options R2MultipartOptions) (*R2MultipartUpload, error) {
-	p, err := jsrt.Call(x.v, "createMultipartUpload", key, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsR2MultipartOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg1 = jsR2MultipartOptions
+	}
+	p, err := jsrt.Call(x.v, "createMultipartUpload", key, arg1)
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +159,16 @@ func (x *R2Bucket) Delete(keys []string) error {
 
 // List
 func (x *R2Bucket) List(options R2ListOptions) (R2Objects, error) {
-	p, err := jsrt.Call(x.v, "list", options.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsR2ListOptions, err := options.toJS()
+		if err != nil {
+			return R2Objects{}, err
+		}
+		arg0 = jsR2ListOptions
+	}
+	p, err := jsrt.Call(x.v, "list", arg0)
 	if err != nil {
 		return R2Objects{}, err
 	}
@@ -477,7 +513,7 @@ func r2ObjectsFromJS(v js.Value) (R2Objects, error) {
 	return out, nil
 }
 
-func (o R2Objects) toJS() js.Value {
+func (o R2Objects) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if len(o.Objects) > 0 {
 		arr := js.Global().Get("Array").New(len(o.Objects))
@@ -499,7 +535,7 @@ func (o R2Objects) toJS() js.Value {
 	if o.Cursor != "" {
 		obj.Set("cursor", o.Cursor)
 	}
-	return obj
+	return obj, nil
 }
 
 // R2GetOptions
@@ -541,18 +577,26 @@ func r2GetOptionsFromJS(v js.Value) (R2GetOptions, error) {
 	return out, nil
 }
 
-func (o R2GetOptions) toJS() js.Value {
+func (o R2GetOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.OnlyIf != nil {
-		obj.Set("onlyIf", (*o.OnlyIf).toJS())
+		jsR2Conditional, err := (*o.OnlyIf).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("onlyIf", jsR2Conditional)
 	}
 	if o.Range != nil {
-		obj.Set("range", (*o.Range).toJS())
+		jsR2Range, err := (*o.Range).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("range", jsR2Range)
 	}
 	if o.SsecKey != "" {
 		obj.Set("ssecKey", o.SsecKey)
 	}
-	return obj
+	return obj, nil
 }
 
 // R2PutOptions
@@ -643,13 +687,21 @@ func r2PutOptionsFromJS(v js.Value) (R2PutOptions, error) {
 	return out, nil
 }
 
-func (o R2PutOptions) toJS() js.Value {
+func (o R2PutOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.OnlyIf != nil {
-		obj.Set("onlyIf", (*o.OnlyIf).toJS())
+		jsR2Conditional, err := (*o.OnlyIf).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("onlyIf", jsR2Conditional)
 	}
 	if o.HTTPMetadata != nil {
-		obj.Set("httpMetadata", (*o.HTTPMetadata).toJS())
+		jsR2HTTPMetadata, err := (*o.HTTPMetadata).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("httpMetadata", jsR2HTTPMetadata)
 	}
 	if len(o.CustomMetadata) > 0 {
 		m := jsrt.NewObject()
@@ -679,7 +731,7 @@ func (o R2PutOptions) toJS() js.Value {
 	if o.SsecKey != "" {
 		obj.Set("ssecKey", o.SsecKey)
 	}
-	return obj
+	return obj, nil
 }
 
 // R2ListOptions
@@ -730,7 +782,7 @@ func r2ListOptionsFromJS(v js.Value) (R2ListOptions, error) {
 	return out, nil
 }
 
-func (o R2ListOptions) toJS() js.Value {
+func (o R2ListOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Limit != 0 {
 		obj.Set("limit", o.Limit)
@@ -754,7 +806,7 @@ func (o R2ListOptions) toJS() js.Value {
 		}
 		obj.Set("include", arr)
 	}
-	return obj
+	return obj, nil
 }
 
 // R2HTTPMetadata
@@ -802,7 +854,7 @@ func r2HTTPMetadataFromJS(v js.Value) (R2HTTPMetadata, error) {
 	return out, nil
 }
 
-func (o R2HTTPMetadata) toJS() js.Value {
+func (o R2HTTPMetadata) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ContentType != "" {
 		obj.Set("contentType", o.ContentType)
@@ -822,7 +874,7 @@ func (o R2HTTPMetadata) toJS() js.Value {
 	if !o.CacheExpiry.IsZero() {
 		obj.Set("cacheExpiry", jsrt.TimeToDate(o.CacheExpiry))
 	}
-	return obj
+	return obj, nil
 }
 
 // R2Range
@@ -852,7 +904,7 @@ func r2RangeFromJS(v js.Value) (R2Range, error) {
 	return out, nil
 }
 
-func (o R2Range) toJS() js.Value {
+func (o R2Range) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Offset != 0 {
 		obj.Set("offset", o.Offset)
@@ -863,7 +915,7 @@ func (o R2Range) toJS() js.Value {
 	if o.Suffix != 0 {
 		obj.Set("suffix", o.Suffix)
 	}
-	return obj
+	return obj, nil
 }
 
 // R2Conditional
@@ -905,7 +957,7 @@ func r2ConditionalFromJS(v js.Value) (R2Conditional, error) {
 	return out, nil
 }
 
-func (o R2Conditional) toJS() js.Value {
+func (o R2Conditional) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.EtagMatches != "" {
 		obj.Set("etagMatches", o.EtagMatches)
@@ -922,7 +974,7 @@ func (o R2Conditional) toJS() js.Value {
 	if o.SecondsGranularity {
 		obj.Set("secondsGranularity", o.SecondsGranularity)
 	}
-	return obj
+	return obj, nil
 }
 
 // R2Checksums
@@ -1033,7 +1085,7 @@ func r2StringChecksumsFromJS(v js.Value) (R2StringChecksums, error) {
 	return out, nil
 }
 
-func (o R2StringChecksums) toJS() js.Value {
+func (o R2StringChecksums) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.MD5 != "" {
 		obj.Set("md5", o.MD5)
@@ -1050,7 +1102,7 @@ func (o R2StringChecksums) toJS() js.Value {
 	if o.Sha512 != "" {
 		obj.Set("sha512", o.Sha512)
 	}
-	return obj
+	return obj, nil
 }
 
 // R2MultipartOptions
@@ -1099,10 +1151,14 @@ func r2MultipartOptionsFromJS(v js.Value) (R2MultipartOptions, error) {
 	return out, nil
 }
 
-func (o R2MultipartOptions) toJS() js.Value {
+func (o R2MultipartOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.HTTPMetadata != nil {
-		obj.Set("httpMetadata", (*o.HTTPMetadata).toJS())
+		jsR2HTTPMetadata, err := (*o.HTTPMetadata).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("httpMetadata", jsR2HTTPMetadata)
 	}
 	if len(o.CustomMetadata) > 0 {
 		m := jsrt.NewObject()
@@ -1117,7 +1173,7 @@ func (o R2MultipartOptions) toJS() js.Value {
 	if o.SsecKey != "" {
 		obj.Set("ssecKey", o.SsecKey)
 	}
-	return obj
+	return obj, nil
 }
 
 // R2MultipartUpload
@@ -1151,7 +1207,15 @@ func (x *R2MultipartUpload) UploadPart(partNumber float64, value io.Reader, opti
 	if err != nil {
 		return R2UploadedPart{}, err
 	}
-	p, err := jsrt.Call(x.v, "uploadPart", partNumber, arg1, options.toJS())
+	var arg2 js.Value
+	{
+		jsR2UploadPartOptions, err := options.toJS()
+		if err != nil {
+			return R2UploadedPart{}, err
+		}
+		arg2 = jsR2UploadPartOptions
+	}
+	p, err := jsrt.Call(x.v, "uploadPart", partNumber, arg1, arg2)
 	if err != nil {
 		return R2UploadedPart{}, err
 	}
@@ -1180,11 +1244,16 @@ func (x *R2MultipartUpload) Abort() error {
 
 // Complete
 func (x *R2MultipartUpload) Complete(uploadedParts []R2UploadedPart) (*R2Object, error) {
+	var err error
 	var arg0 js.Value
 	{
 		arr := js.Global().Get("Array").New(len(uploadedParts))
 		for i, e := range uploadedParts {
-			arr.SetIndex(i, e.toJS())
+			jsR2UploadedPart, err := e.toJS()
+			if err != nil {
+				return nil, err
+			}
+			arr.SetIndex(i, jsR2UploadedPart)
 		}
 		arg0 = arr
 	}
@@ -1218,7 +1287,7 @@ func r2UploadedPartFromJS(v js.Value) (R2UploadedPart, error) {
 	return out, nil
 }
 
-func (o R2UploadedPart) toJS() js.Value {
+func (o R2UploadedPart) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.PartNumber != 0 {
 		obj.Set("partNumber", o.PartNumber)
@@ -1226,7 +1295,7 @@ func (o R2UploadedPart) toJS() js.Value {
 	if o.Etag != "" {
 		obj.Set("etag", o.Etag)
 	}
-	return obj
+	return obj, nil
 }
 
 // R2UploadPartOptions
@@ -1244,10 +1313,10 @@ func r2UploadPartOptionsFromJS(v js.Value) (R2UploadPartOptions, error) {
 	return out, nil
 }
 
-func (o R2UploadPartOptions) toJS() js.Value {
+func (o R2UploadPartOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.SsecKey != "" {
 		obj.Set("ssecKey", o.SsecKey)
 	}
-	return obj
+	return obj, nil
 }

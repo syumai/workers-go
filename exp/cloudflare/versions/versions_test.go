@@ -26,7 +26,10 @@ func TestWorkerVersionMetadataFromJS_ToJS_RoundTrip(t *testing.T) {
 		t.Fatalf("decoded metadata = %+v, want {ID:v1 Tag:some-tag Timestamp:2026-09-07T00:00:00Z}", meta)
 	}
 
-	back := meta.toJS()
+	back, err := meta.toJS()
+	if err != nil {
+		t.Fatalf("toJS failed: %v", err)
+	}
 	if got := back.Get("id").String(); got != "v1" {
 		t.Errorf("toJS().id = %q, want %q", got, "v1")
 	}

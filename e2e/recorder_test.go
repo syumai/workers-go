@@ -5,6 +5,7 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -21,11 +22,6 @@ type valueOutcome struct {
 	// jsType is the JS type name the fake must observe ("String",
 	// "Uint8Array", "Array", ...).
 	jsType string
-	// fixme, when non-empty, marks a row that currently fails because of a
-	// known bug; the text says why. The row still asserts the correct
-	// result. It is skipped unless E2E_FIXME is set. Delete the field once
-	// the bug is fixed.
-	fixme string
 }
 
 // recorderMatrix is the CORRECT behavior of every generated site that takes
@@ -33,14 +29,8 @@ type valueOutcome struct {
 // conversion, so one table covers Vectorize (metadata/filter),
 // DispatchNamespace.Get (args + outbound) and Workers AI GatewayOptions
 // (metadata).
-//
-// Rows with a fixme reason fail on main: the generated code hands the Go
-// value to js.ValueOf, which panics ("ValueOf: invalid value") on []byte,
-// time.Time and []string. They are skipped unless E2E_FIXME is set; delete
-// the fixme field when the conversion is fixed. All other rows pass today and
-// must keep passing.
+
 var recorderMatrix = map[string]valueOutcome{
-	// js.ValueOf handles these natively.
 	"str":    {jsType: "String"},
 	"num":    {jsType: "Number"},
 	"int":    {jsType: "Number"}, // JS has one number type; Go ints cross as doubles.
@@ -51,17 +41,16 @@ var recorderMatrix = map[string]valueOutcome{
 	// A js.Value is passed through untouched.
 	"jsvalue": {jsType: "String"},
 
-	// FIXME: these panic in js.ValueOf today.
 	// []byte must reach JS as a Uint8Array (SqlStorage and D1 both store a
 	// Uint8Array as a BLOB).
-	"bytes": {jsType: "Uint8Array", fixme: "[]byte panics in js.ValueOf"},
+	"bytes": {jsType: "Uint8Array"},
 	// A []byte nested inside a map must be converted too, not left to panic.
-	"nestedby": {jsType: "Object", fixme: "nested []byte panics in js.ValueOf"},
+	"nestedby": {jsType: "Object"},
 	// Vectorize metadata documents string arrays as a valid value.
-	"strs": {jsType: "Array", fixme: "[]string panics in js.ValueOf"},
+	"strs": {jsType: "Array"},
 	// time.Time -> Date is the only sensible JS representation; a Date
 	// round-trips through workerd RPC as a Date.
-	"time": {jsType: "Date", fixme: "time.Time panics in js.ValueOf"},
+	"time": {jsType: "Date"},
 }
 
 // recorderSites are the generated entry points that convert an any-typed
@@ -139,9 +128,6 @@ func TestRecorderAnyConversion(t *testing.T) {
 		t.Run(site.name, func(t *testing.T) {
 			for key, want := range recorderMatrix {
 				t.Run(key, func(t *testing.T) {
-					if want.fixme != "" {
-						skipFixme(t, want.fixme)
-					}
 					resp, body := w.Get(t, site.path+"?only="+key)
 					if resp.StatusCode != 200 {
 						t.Fatalf("status = %d (body = %q)", resp.StatusCode, body)
@@ -165,6 +151,41 @@ func TestRecorderAnyConversion(t *testing.T) {
 					}
 					if got.Type != want.jsType {
 						t.Errorf("JS type = %s, want %s", got.Type, want.jsType)
+					}
+				})
+			}
+		})
+	}
+}
+
+// TestRecorderUnconvertibleValue checks the failure mode for a value with no
+// JS representation (a chan, or a func nested in a slice in a map). The
+// generated struct toJS methods run before jsrt.Call, so a panic there is not
+// recovered and used to take the whole request down with an empty 500. Every
+// site must instead return an error from the generated call, and never reach
+// the fake service.
+func TestRecorderUnconvertibleValue(t *testing.T) {
+	w := startWranglerWith(t, "recorder", wranglerOptions{extraConfigNames: []string{"callee.jsonc"}})
+
+	for _, site := range recorderSites {
+		t.Run(site.name, func(t *testing.T) {
+			for _, key := range []string{"unconvertible", "unconvertible_nested"} {
+				t.Run(key, func(t *testing.T) {
+					resp, body := w.Get(t, site.path+"?only="+key)
+					if resp.StatusCode != 200 {
+						t.Fatalf("status = %d (body = %q): the call must return an error, not crash the request", resp.StatusCode, body)
+					}
+					var got struct {
+						GoError string `json:"go_error"`
+					}
+					if err := json.Unmarshal([]byte(body), &got); err != nil {
+						t.Fatalf("unmarshal %q: %v", body, err)
+					}
+					if got.GoError == "" {
+						t.Fatalf("generated call accepted an unconvertible value: %s", body)
+					}
+					if strings.HasPrefix(got.GoError, "panic:") {
+						t.Fatalf("generated call panicked instead of returning an error: %s", got.GoError)
 					}
 				})
 			}
