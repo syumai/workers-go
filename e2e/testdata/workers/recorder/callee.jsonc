@@ -1,0 +1,5 @@
+{
+  "name": "recorder-callee",
+  "main": "./callee.mjs",
+  "compatibility_date": "2025-06-01"
+}
