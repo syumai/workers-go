@@ -1,0 +1,14 @@
+{
+  // The Go worker under test. It is bound to the "recorder" Worker below
+  // through service bindings that carry the *names* of the real Cloudflare
+  // bindings (VECTORIZE, DISPATCH, AI), so generated code resolves them
+  // with the same jsrt.Binding lookup it uses in production.
+  "name": "recorder-go",
+  "main": "./build/worker.mjs",
+  "compatibility_date": "2025-06-01",
+  "services": [
+    { "binding": "VECTORIZE", "service": "recorder-callee", "entrypoint": "FakeVectorize" },
+    { "binding": "DISPATCH", "service": "recorder-callee", "entrypoint": "FakeDispatch" },
+    { "binding": "AI", "service": "recorder-callee", "entrypoint": "FakeAi" }
+  ]
+}

@@ -33,6 +33,8 @@ func (n *notebook) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
 	case "/sql":
 		n.handleSQL(w, r)
+	case "/rawsql":
+		n.handleRawSQL(w, r)
 	case "/db/exec":
 		n.handleDBExec(w, r)
 	case "/db/query":
@@ -196,6 +198,91 @@ func (n *notebook) handleSQL(w http.ResponseWriter, r *http.Request) {
 	resp["rows_read"] = cursor.RowsRead()
 	resp["rows_written"] = cursor.RowsWritten()
 	writeJSON(w, resp)
+}
+
+// rawSQLCase is one bind value handed to the generated SQLStorage.Exec
+// exactly as Go holds it, with no shim in between (contrast handleSQL, whose
+// jsSQLBindings turns []byte into an ArrayBuffer first and so never lets the
+// generated code see a []byte). The result reports what workerd actually
+// stored: SQLite's typeof() and hex() of the bound column, or the error the
+// call returned.
+type rawSQLResult struct {
+	Error string `json:"error,omitempty"`
+	// TypeOf and Hex are SQLite's typeof(x) and hex(x) of the stored value.
+	TypeOf string `json:"typeof,omitempty"`
+	Hex    string `json:"hex,omitempty"`
+}
+
+// rawSQLValues maps a case name to the Go value passed as a single binding.
+// Every value is passed straight to SQLStorage.Exec as a ...any element.
+func rawSQLValues() map[string]any {
+	return map[string]any{
+		"nil":         nil,
+		"string":      "text",
+		"int64":       int64(42),
+		"int":         42,
+		"float64":     1.5,
+		"bool_true":   true,
+		"bool_false":  false,
+		"bytes":       []byte{0x00, 0x01, 0xff, 'h', 'i'},
+		"bytes_empty": []byte{},
+		"bytes_nil":   []byte(nil),
+		"time":        time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+		"js_uint8array": func() js.Value {
+			u8 := js.Global().Get("Uint8Array").New(3)
+			js.CopyBytesToJS(u8, []byte{1, 2, 3})
+			return u8
+		}(),
+		"js_arraybuffer": arrayBufferFromBytes([]byte{1, 2, 3}),
+		"string_slice":   []string{"a", "b"},
+		"any_slice":      []any{int64(1), "x"},
+		"map":            map[string]any{"a": int64(1)},
+	}
+}
+
+// handleRawSQL binds one Go value per request ("case" query parameter)
+// through the generated SQLStorage.Exec and reports what SQLite stored.
+// GET /notebook/rawsql?case=bytes&name=... lists nothing; an unknown case is
+// a 400. Each case is isolated in its own table row so a failing case does
+// not mask the others.
+func (n *notebook) handleRawSQL(w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("case")
+	values := rawSQLValues()
+	v, ok := values[name]
+	if !ok {
+		http.Error(w, "unknown case "+name, http.StatusBadRequest)
+		return
+	}
+	sqlStorage := n.state.Storage().SQL()
+	var res rawSQLResult
+	// Exec panics are recovered inside jsrt.Call and surface as an error,
+	// which is exactly the failure mode under test.
+	if _, err := sqlStorage.Exec(`CREATE TABLE IF NOT EXISTS raw_bind (v)`); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if _, err := sqlStorage.Exec(`DELETE FROM raw_bind`); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if _, err := sqlStorage.Exec(`INSERT INTO raw_bind (v) VALUES (?)`, v); err != nil {
+		res.Error = err.Error()
+		writeJSON(w, res)
+		return
+	}
+	cursor, err := sqlStorage.Exec(`SELECT typeof(v) AS t, hex(v) AS h FROM raw_bind`)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	row, err := cursor.One()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	res.TypeOf = row.Get("t").String()
+	res.Hex = row.Get("h").String()
+	writeJSON(w, res)
 }
 
 // jsSQLBindings converts bind values for SQLStorage.Exec. []byte becomes an
