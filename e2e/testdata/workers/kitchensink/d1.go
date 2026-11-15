@@ -6,6 +6,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+
+	"github.com/syumai/workers-go/cloudflare/d1"
 )
 
 // d1Request is the shared body shape for POST /d1/exec and POST /d1/query:
@@ -162,6 +164,71 @@ func handleD1Query(w http.ResponseWriter, r *http.Request) {
 		Columns: cols,
 		Rows:    resultRows,
 	}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
+// d1BatchRequest is the body of POST /d1/batch: an ordered list of
+// statements to run through d1.Batch (one D1Database.batch() call).
+type d1BatchRequest struct {
+	Statements []d1Request `json:"statements"`
+}
+
+type d1BatchStatementResponse struct {
+	LastInsertID int64    `json:"last_insert_id"`
+	RowsAffected int64    `json:"rows_affected"`
+	Columns      []string `json:"columns"`
+	Rows         [][]any  `json:"rows"`
+	Meta         d1.Meta  `json:"meta"`
+}
+
+type d1BatchResponse struct {
+	Results []d1BatchStatementResponse `json:"results"`
+}
+
+func handleD1Batch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	var req d1BatchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	db, err := getD1DB()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	stmts := make([]d1.Statement, len(req.Statements))
+	for i, s := range req.Statements {
+		stmts[i] = d1.Statement{Query: s.SQL, Args: toDriverArgs(s.Args)}
+	}
+	results, err := d1.Batch(r.Context(), db, stmts...)
+	if err != nil {
+		// The whole batch was rolled back by D1.
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	resp := d1BatchResponse{Results: make([]d1BatchStatementResponse, len(results))}
+	for i, res := range results {
+		out := d1BatchStatementResponse{Columns: res.Columns, Rows: [][]any{}, Meta: res.Meta}
+		// Not every statement has a usable last_row_id/changes; fall back
+		// to 0 like handleD1Exec does.
+		out.LastInsertID, _ = res.LastInsertId()
+		out.RowsAffected, _ = res.RowsAffected()
+		for _, row := range res.Rows {
+			vals := make([]any, len(row))
+			for j, v := range row {
+				vals[j] = v
+			}
+			out.Rows = append(out.Rows, vals)
+		}
+		resp.Results[i] = out
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
