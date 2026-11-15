@@ -284,7 +284,7 @@ func incomingRequestCFPropertiesFromJS(v js.Value) (IncomingRequestCFProperties,
 	return out, nil
 }
 
-func (o IncomingRequestCFProperties) toJS() js.Value {
+func (o IncomingRequestCFProperties) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ASN != 0 {
 		obj.Set("asn", o.ASN)
@@ -317,7 +317,11 @@ func (o IncomingRequestCFProperties) toJS() js.Value {
 		obj.Set("tlsCipher", o.TLSCipher)
 	}
 	if o.TLSExportedAuthenticator != nil {
-		obj.Set("tlsExportedAuthenticator", (*o.TLSExportedAuthenticator).toJS())
+		jsIncomingRequestCFPropertiesExportedAuthenticatorMetadata, err := (*o.TLSExportedAuthenticator).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("tlsExportedAuthenticator", jsIncomingRequestCFPropertiesExportedAuthenticatorMetadata)
 	}
 	if !jsrt.IsNil(o.BotManagement) {
 		obj.Set("botManagement", o.BotManagement)
@@ -364,7 +368,7 @@ func (o IncomingRequestCFProperties) toJS() js.Value {
 	if !jsrt.IsNil(o.TLSClientAuth) {
 		obj.Set("tlsClientAuth", o.TLSClientAuth)
 	}
-	return obj
+	return obj, nil
 }
 
 // IncomingRequestCFPropertiesBase
@@ -479,7 +483,7 @@ func incomingRequestCFPropertiesBaseFromJS(v js.Value) (IncomingRequestCFPropert
 	return out, nil
 }
 
-func (o IncomingRequestCFPropertiesBase) toJS() js.Value {
+func (o IncomingRequestCFPropertiesBase) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ASN != 0 {
 		obj.Set("asn", o.ASN)
@@ -512,9 +516,13 @@ func (o IncomingRequestCFPropertiesBase) toJS() js.Value {
 		obj.Set("tlsCipher", o.TLSCipher)
 	}
 	if o.TLSExportedAuthenticator != nil {
-		obj.Set("tlsExportedAuthenticator", (*o.TLSExportedAuthenticator).toJS())
+		jsIncomingRequestCFPropertiesExportedAuthenticatorMetadata, err := (*o.TLSExportedAuthenticator).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("tlsExportedAuthenticator", jsIncomingRequestCFPropertiesExportedAuthenticatorMetadata)
 	}
-	return obj
+	return obj, nil
 }
 
 // IncomingRequestCFPropertiesBotManagement
@@ -544,15 +552,19 @@ func incomingRequestCFPropertiesBotManagementFromJS(v js.Value) (IncomingRequest
 	return out, nil
 }
 
-func (o IncomingRequestCFPropertiesBotManagement) toJS() js.Value {
+func (o IncomingRequestCFPropertiesBotManagement) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if true {
-		obj.Set("botManagement", o.BotManagement.toJS())
+		jsIncomingRequestCFPropertiesBotManagementBase, err := o.BotManagement.toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("botManagement", jsIncomingRequestCFPropertiesBotManagementBase)
 	}
 	if o.ClientTrustScore != 0 {
 		obj.Set("clientTrustScore", o.ClientTrustScore)
 	}
-	return obj
+	return obj, nil
 }
 
 // IncomingRequestCFPropertiesBotManagementBase
@@ -597,7 +609,7 @@ func incomingRequestCFPropertiesBotManagementBaseFromJS(v js.Value) (IncomingReq
 	return out, nil
 }
 
-func (o IncomingRequestCFPropertiesBotManagementBase) toJS() js.Value {
+func (o IncomingRequestCFPropertiesBotManagementBase) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Score != 0 {
 		obj.Set("score", o.Score)
@@ -618,7 +630,7 @@ func (o IncomingRequestCFPropertiesBotManagementBase) toJS() js.Value {
 		}
 		obj.Set("detectionIds", arr)
 	}
-	return obj
+	return obj, nil
 }
 
 // IncomingRequestCFPropertiesBotManagementEnterprise
@@ -648,15 +660,19 @@ func incomingRequestCFPropertiesBotManagementEnterpriseFromJS(v js.Value) (Incom
 	return out, nil
 }
 
-func (o IncomingRequestCFPropertiesBotManagementEnterprise) toJS() js.Value {
+func (o IncomingRequestCFPropertiesBotManagementEnterprise) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if true {
-		obj.Set("botManagement", o.BotManagement.toJS())
+		jsIncomingRequestCFPropertiesBotManagementEnterpriseBotManagement, err := o.BotManagement.toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("botManagement", jsIncomingRequestCFPropertiesBotManagementEnterpriseBotManagement)
 	}
 	if o.ClientTrustScore != 0 {
 		obj.Set("clientTrustScore", o.ClientTrustScore)
 	}
-	return obj
+	return obj, nil
 }
 
 // IncomingRequestCFPropertiesTLSClientAuth Data about the incoming request's TLS certificate
@@ -812,7 +828,7 @@ func incomingRequestCFPropertiesTLSClientAuthFromJS(v js.Value) (IncomingRequest
 	return out, nil
 }
 
-func (o IncomingRequestCFPropertiesTLSClientAuth) toJS() js.Value {
+func (o IncomingRequestCFPropertiesTLSClientAuth) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.CertPresented != "" {
 		obj.Set("certPresented", o.CertPresented)
@@ -877,7 +893,7 @@ func (o IncomingRequestCFPropertiesTLSClientAuth) toJS() js.Value {
 	if o.CertChainRFC9440TooLarge {
 		obj.Set("certChainRFC9440TooLarge", o.CertChainRFC9440TooLarge)
 	}
-	return obj
+	return obj, nil
 }
 
 // IncomingRequestCFPropertiesTLSClientAuthPlaceholder Placeholder values for TLS Client Authorization
@@ -973,7 +989,7 @@ func incomingRequestCFPropertiesTLSClientAuthPlaceholderFromJS(v js.Value) (Inco
 	return out, nil
 }
 
-func (o IncomingRequestCFPropertiesTLSClientAuthPlaceholder) toJS() js.Value {
+func (o IncomingRequestCFPropertiesTLSClientAuthPlaceholder) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.CertPresented != "" {
 		obj.Set("certPresented", o.CertPresented)
@@ -1038,7 +1054,7 @@ func (o IncomingRequestCFPropertiesTLSClientAuthPlaceholder) toJS() js.Value {
 	if o.CertChainRFC9440TooLarge {
 		obj.Set("certChainRFC9440TooLarge", o.CertChainRFC9440TooLarge)
 	}
-	return obj
+	return obj, nil
 }
 
 // IncomingRequestCFPropertiesGeographicInformation Geographic data about the request's origin.
@@ -1157,7 +1173,7 @@ func incomingRequestCFPropertiesGeographicInformationFromJS(v js.Value) (Incomin
 	return out, nil
 }
 
-func (o IncomingRequestCFPropertiesGeographicInformation) toJS() js.Value {
+func (o IncomingRequestCFPropertiesGeographicInformation) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Country != "" {
 		obj.Set("country", o.Country)
@@ -1192,7 +1208,7 @@ func (o IncomingRequestCFPropertiesGeographicInformation) toJS() js.Value {
 	if o.MetroCode != "" {
 		obj.Set("metroCode", o.MetroCode)
 	}
-	return obj
+	return obj, nil
 }
 
 // IncomingRequestCFPropertiesCloudflareForSaaSEnterprise
@@ -1214,12 +1230,12 @@ func incomingRequestCFPropertiesCloudflareForSaaSEnterpriseFromJS(v js.Value) (I
 	return out, nil
 }
 
-func (o IncomingRequestCFPropertiesCloudflareForSaaSEnterprise) toJS() js.Value {
+func (o IncomingRequestCFPropertiesCloudflareForSaaSEnterprise) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if !jsrt.IsNil(o.HostMetadata) {
 		obj.Set("hostMetadata", o.HostMetadata)
 	}
-	return obj
+	return obj, nil
 }
 
 // IncomingRequestCFPropertiesCloudflareAccessOrAPIShield
@@ -1247,12 +1263,12 @@ func incomingRequestCFPropertiesCloudflareAccessOrAPIShieldFromJS(v js.Value) (I
 	return out, nil
 }
 
-func (o IncomingRequestCFPropertiesCloudflareAccessOrAPIShield) toJS() js.Value {
+func (o IncomingRequestCFPropertiesCloudflareAccessOrAPIShield) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if !jsrt.IsNil(o.TLSClientAuth) {
 		obj.Set("tlsClientAuth", o.TLSClientAuth)
 	}
-	return obj
+	return obj, nil
 }
 
 // IncomingRequestCFPropertiesExportedAuthenticatorMetadata Metadata about the request's TLS handshake
@@ -1292,7 +1308,7 @@ func incomingRequestCFPropertiesExportedAuthenticatorMetadataFromJS(v js.Value) 
 	return out, nil
 }
 
-func (o IncomingRequestCFPropertiesExportedAuthenticatorMetadata) toJS() js.Value {
+func (o IncomingRequestCFPropertiesExportedAuthenticatorMetadata) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ClientHandshake != "" {
 		obj.Set("clientHandshake", o.ClientHandshake)
@@ -1306,7 +1322,7 @@ func (o IncomingRequestCFPropertiesExportedAuthenticatorMetadata) toJS() js.Valu
 	if o.ServerFinished != "" {
 		obj.Set("serverFinished", o.ServerFinished)
 	}
-	return obj
+	return obj, nil
 }
 
 // IncomingRequestCFPropertiesEdgeRequestKeepAliveStatus An upstream endpoint's response to a TCP `keepalive` message from Cloudflare.
@@ -1373,7 +1389,7 @@ func incomingRequestCFPropertiesBotManagementEnterpriseBotManagementFromJS(v js.
 	return out, nil
 }
 
-func (o IncomingRequestCFPropertiesBotManagementEnterpriseBotManagement) toJS() js.Value {
+func (o IncomingRequestCFPropertiesBotManagementEnterpriseBotManagement) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Score != 0 {
 		obj.Set("score", o.Score)
@@ -1397,5 +1413,5 @@ func (o IncomingRequestCFPropertiesBotManagementEnterpriseBotManagement) toJS() 
 	if o.JA3Hash != "" {
 		obj.Set("ja3Hash", o.JA3Hash)
 	}
-	return obj
+	return obj, nil
 }

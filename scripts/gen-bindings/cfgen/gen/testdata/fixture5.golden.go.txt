@@ -77,7 +77,25 @@ func (x *Registry) GetAllRaw() (map[string]js.Value, error) {
 
 // Log a rest parameter whose element type is any becomes a Go ...any spread directly into jsrt.Call
 func (x *Registry) Log(level string, args ...any) error {
-	_, err := jsrt.Call(x.v, "log", append([]any{level}, args...)...)
+	var err error
+	var arg1 []any
+	arg1, err = jsrt.AnyArgs(args)
+	if err != nil {
+		return err
+	}
+	_, err = jsrt.Call(x.v, "log", append([]any{level}, arg1...)...)
+	return err
+}
+
+// Bind a rest parameter that is the method's only argument and whose element type is unknown (D1PreparedStatement.bind's shape); each element is converted by jsrt.AnyArgs (a []byte becomes a Uint8Array; a value with no JS form is returned as an error)
+func (x *Registry) Bind(values ...any) error {
+	var err error
+	var arg0 []any
+	arg0, err = jsrt.AnyArgs(values)
+	if err != nil {
+		return err
+	}
+	_, err = jsrt.Call(x.v, "bind", arg0...)
 	return err
 }
 

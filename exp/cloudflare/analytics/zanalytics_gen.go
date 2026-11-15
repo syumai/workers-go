@@ -34,7 +34,16 @@ func NewAnalyticsEngineDataset(bindingName string) (*AnalyticsEngineDataset, err
 
 // WriteDataPoint
 func (x *AnalyticsEngineDataset) WriteDataPoint(event AnalyticsEngineDataPoint) error {
-	_, err := jsrt.Call(x.v, "writeDataPoint", event.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsAnalyticsEngineDataPoint, err := event.toJS()
+		if err != nil {
+			return err
+		}
+		arg0 = jsAnalyticsEngineDataPoint
+	}
+	_, err = jsrt.Call(x.v, "writeDataPoint", arg0)
 	return err
 }
 
@@ -74,7 +83,7 @@ func analyticsEngineDataPointFromJS(v js.Value) (AnalyticsEngineDataPoint, error
 	return out, nil
 }
 
-func (o AnalyticsEngineDataPoint) toJS() js.Value {
+func (o AnalyticsEngineDataPoint) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if len(o.Indexes) > 0 {
 		arr := js.Global().Get("Array").New(len(o.Indexes))
@@ -97,5 +106,5 @@ func (o AnalyticsEngineDataPoint) toJS() js.Value {
 		}
 		obj.Set("blobs", arr)
 	}
-	return obj
+	return obj, nil
 }

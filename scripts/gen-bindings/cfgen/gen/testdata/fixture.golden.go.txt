@@ -154,7 +154,7 @@ func widgetInfoFromJS(v js.Value) (WidgetInfo, error) {
 	return out, nil
 }
 
-func (o WidgetInfo) toJS() js.Value {
+func (o WidgetInfo) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Name != "" {
 		obj.Set("widget_name", o.Name)
@@ -175,7 +175,7 @@ func (o WidgetInfo) toJS() js.Value {
 	if !jsrt.IsNil(o.Secret) {
 		obj.Set("secret", o.Secret)
 	}
-	return obj
+	return obj, nil
 }
 
 // WidgetStatus WidgetStatus is a string-literal union alias.
@@ -208,12 +208,12 @@ func geoBaseFromJS(v js.Value) (GeoBase, error) {
 	return out, nil
 }
 
-func (o GeoBase) toJS() js.Value {
+func (o GeoBase) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Lat != 0 {
 		obj.Set("lat", o.Lat)
 	}
-	return obj
+	return obj, nil
 }
 
 // GeoExt GeoExt extends GeoBase, exercising extends-flattening: it inherits lat from GeoBase but overrides it with its own (differently typed) lat, and adds lng.
@@ -233,7 +233,7 @@ func geoExtFromJS(v js.Value) (GeoExt, error) {
 	return out, nil
 }
 
-func (o GeoExt) toJS() js.Value {
+func (o GeoExt) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Lat != "" {
 		obj.Set("lat", o.Lat)
@@ -241,7 +241,7 @@ func (o GeoExt) toJS() js.Value {
 	if o.Lng != 0 {
 		obj.Set("lng", o.Lng)
 	}
-	return obj
+	return obj, nil
 }
 
 // GeoCombined GeoCombined is an intersection of a ref (GeoExt) and an inline object literal, exercising intersection-flattening for alias declarations.
@@ -265,7 +265,7 @@ func geoCombinedFromJS(v js.Value) (GeoCombined, error) {
 	return out, nil
 }
 
-func (o GeoCombined) toJS() js.Value {
+func (o GeoCombined) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Lat != "" {
 		obj.Set("lat", o.Lat)
@@ -276,5 +276,5 @@ func (o GeoCombined) toJS() js.Value {
 	if o.Label != "" {
 		obj.Set("label", o.Label)
 	}
-	return obj
+	return obj, nil
 }

@@ -40,7 +40,16 @@ func NewImagesBinding(bindingName string) (*ImagesBinding, error) {
 // @throws {@link ImagesError} with code 9412 if input is not an image
 // @param stream The image bytes
 func (x *ImagesBinding) Info(stream io.Reader, options ImageInputOptions) (ImageInfoResponse, error) {
-	p, err := jsrt.Call(x.v, "info", jsrt.ReadableStreamFromReader(stream), options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsImageInputOptions, err := options.toJS()
+		if err != nil {
+			return ImageInfoResponse{}, err
+		}
+		arg1 = jsImageInputOptions
+	}
+	p, err := jsrt.Call(x.v, "info", jsrt.ReadableStreamFromReader(stream), arg1)
 	if err != nil {
 		return ImageInfoResponse{}, err
 	}
@@ -61,7 +70,16 @@ func (x *ImagesBinding) Info(stream io.Reader, options ImageInputOptions) (Image
 // @param stream The image bytes
 // @returns A transform handle
 func (x *ImagesBinding) Input(stream io.Reader, options ImageInputOptions) (*ImageTransformer, error) {
-	r, err := jsrt.Call(x.v, "input", jsrt.ReadableStreamFromReader(stream), options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsImageInputOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg1 = jsImageInputOptions
+	}
+	r, err := jsrt.Call(x.v, "input", jsrt.ReadableStreamFromReader(stream), arg1)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +93,16 @@ func (x *ImagesBinding) Input(stream io.Reader, options ImageInputOptions) (*Ima
 // @param options font, optional color and size to use in rendering text
 // @returns A transform handle
 func (x *ImagesBinding) Text(content string, options TextOptions) (*ImageTransformer, error) {
-	r, err := jsrt.Call(x.v, "text", content, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsTextOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg1 = jsTextOptions
+	}
+	r, err := jsrt.Call(x.v, "text", content, arg1)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +124,16 @@ func (x *ImageTransformer) JSValue() js.Value { return x.v }
 // You can then apply more transformations, draw, or retrieve the output.
 // @param transform
 func (x *ImageTransformer) Transform(transform ImageTransform) (*ImageTransformer, error) {
-	r, err := jsrt.Call(x.v, "transform", transform.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsImageTransform, err := transform.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg0 = jsImageTransform
+	}
+	r, err := jsrt.Call(x.v, "transform", arg0)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +147,16 @@ func (x *ImageTransformer) Transform(transform ImageTransform) (*ImageTransforme
 // @param image The image (or transformer that will give the image) to draw
 // @param options The options configuring how to draw the image
 func (x *ImageTransformer) Draw(image io.Reader, options ImageDrawOptions) (*ImageTransformer, error) {
-	r, err := jsrt.Call(x.v, "draw", jsrt.ReadableStreamFromReader(image), options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsImageDrawOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg1 = jsImageDrawOptions
+	}
+	r, err := jsrt.Call(x.v, "draw", jsrt.ReadableStreamFromReader(image), arg1)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +169,16 @@ func (x *ImageTransformer) Draw(image io.Reader, options ImageDrawOptions) (*Ima
 // provided input
 // @param options Options that apply to the output e.g. output format
 func (x *ImageTransformer) Output(options ImageOutputOptions) (*ImageTransformationResult, error) {
-	p, err := jsrt.Call(x.v, "output", options.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsImageOutputOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg0 = jsImageOutputOptions
+	}
+	p, err := jsrt.Call(x.v, "output", arg0)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +205,16 @@ func (x *ImageTransformationResult) JSValue() js.Value { return x.v }
 // Response The image as a response, ready to store in cache or return to users
 // @param options Options that apply to the returned response, e.g. additional headers
 func (x *ImageTransformationResult) Response(options ImageTransformationResponseOptions) (js.Value, error) {
-	r, err := jsrt.Call(x.v, "response", options.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsImageTransformationResponseOptions, err := options.toJS()
+		if err != nil {
+			return js.Undefined(), err
+		}
+		arg0 = jsImageTransformationResponseOptions
+	}
+	r, err := jsrt.Call(x.v, "response", arg0)
 	if err != nil {
 		return js.Undefined(), err
 	}
@@ -173,7 +236,16 @@ func (x *ImageTransformationResult) ContentType() (string, error) {
 
 // Image The bytes of the response
 func (x *ImageTransformationResult) Image(options ImageTransformationOutputOptions) (io.ReadCloser, error) {
-	r, err := jsrt.Call(x.v, "image", options.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsImageTransformationOutputOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg0 = jsImageTransformationOutputOptions
+	}
+	r, err := jsrt.Call(x.v, "image", arg0)
 	if err != nil {
 		return nil, err
 	}
@@ -197,12 +269,12 @@ func imageInputOptionsFromJS(v js.Value) (ImageInputOptions, error) {
 	return out, nil
 }
 
-func (o ImageInputOptions) toJS() js.Value {
+func (o ImageInputOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Encoding != "" {
 		obj.Set("encoding", o.Encoding)
 	}
-	return obj
+	return obj, nil
 }
 
 // ImageTransform
@@ -316,7 +388,7 @@ func imageTransformFromJS(v js.Value) (ImageTransform, error) {
 	return out, nil
 }
 
-func (o ImageTransform) toJS() js.Value {
+func (o ImageTransform) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Width != 0 {
 		obj.Set("width", o.Width)
@@ -331,7 +403,11 @@ func (o ImageTransform) toJS() js.Value {
 		obj.Set("blur", o.Blur)
 	}
 	if o.Border != nil {
-		obj.Set("border", (*o.Border).toJS())
+		jsImageTransformBorder, err := (*o.Border).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("border", jsImageTransformBorder)
 	}
 	if o.Brightness != 0 {
 		obj.Set("brightness", o.Brightness)
@@ -366,7 +442,7 @@ func (o ImageTransform) toJS() js.Value {
 	if !jsrt.IsNil(o.Trim) {
 		obj.Set("trim", o.Trim)
 	}
-	return obj
+	return obj, nil
 }
 
 // ImageDrawOptions
@@ -420,7 +496,7 @@ func imageDrawOptionsFromJS(v js.Value) (ImageDrawOptions, error) {
 	return out, nil
 }
 
-func (o ImageDrawOptions) toJS() js.Value {
+func (o ImageDrawOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Opacity != 0 {
 		obj.Set("opacity", o.Opacity)
@@ -443,7 +519,7 @@ func (o ImageDrawOptions) toJS() js.Value {
 	if o.Right != 0 {
 		obj.Set("right", o.Right)
 	}
-	return obj
+	return obj, nil
 }
 
 // ImageCompositeMode
@@ -489,7 +565,7 @@ func imageOutputOptionsFromJS(v js.Value) (ImageOutputOptions, error) {
 	return out, nil
 }
 
-func (o ImageOutputOptions) toJS() js.Value {
+func (o ImageOutputOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Format != "" {
 		obj.Set("format", o.Format)
@@ -503,7 +579,7 @@ func (o ImageOutputOptions) toJS() js.Value {
 	if o.Anim {
 		obj.Set("anim", o.Anim)
 	}
-	return obj
+	return obj, nil
 }
 
 // ImageInfoResponse
@@ -537,7 +613,7 @@ func imageInfoResponseFromJS(v js.Value) (ImageInfoResponse, error) {
 	return out, nil
 }
 
-func (o ImageInfoResponse) toJS() js.Value {
+func (o ImageInfoResponse) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Format != "" {
 		obj.Set("format", o.Format)
@@ -551,7 +627,7 @@ func (o ImageInfoResponse) toJS() js.Value {
 	if o.Height != 0 {
 		obj.Set("height", o.Height)
 	}
-	return obj
+	return obj, nil
 }
 
 // ImageTransformationResponseOptions
@@ -569,12 +645,12 @@ func imageTransformationResponseOptionsFromJS(v js.Value) (ImageTransformationRe
 	return out, nil
 }
 
-func (o ImageTransformationResponseOptions) toJS() js.Value {
+func (o ImageTransformationResponseOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if len(o.Headers) > 0 {
 		obj.Set("headers", jsrt.HeadersToJS(o.Headers))
 	}
-	return obj
+	return obj, nil
 }
 
 // ImageTransformationOutputOptions
@@ -592,12 +668,12 @@ func imageTransformationOutputOptionsFromJS(v js.Value) (ImageTransformationOutp
 	return out, nil
 }
 
-func (o ImageTransformationOutputOptions) toJS() js.Value {
+func (o ImageTransformationOutputOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Encoding != "" {
 		obj.Set("encoding", o.Encoding)
 	}
-	return obj
+	return obj, nil
 }
 
 // TextOptions
@@ -632,10 +708,14 @@ func textOptionsFromJS(v js.Value) (TextOptions, error) {
 	return out, nil
 }
 
-func (o TextOptions) toJS() js.Value {
+func (o TextOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if true {
-		obj.Set("font", o.Font.toJS())
+		jsTextOptionsFont, err := o.Font.toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("font", jsTextOptionsFont)
 	}
 	if o.Size != 0 {
 		obj.Set("size", o.Size)
@@ -643,7 +723,7 @@ func (o TextOptions) toJS() js.Value {
 	if o.Color != "" {
 		obj.Set("color", o.Color)
 	}
-	return obj
+	return obj, nil
 }
 
 // ImageTransformBorder
@@ -691,7 +771,7 @@ func imageTransformBorderFromJS(v js.Value) (ImageTransformBorder, error) {
 	return out, nil
 }
 
-func (o ImageTransformBorder) toJS() js.Value {
+func (o ImageTransformBorder) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Color != "" {
 		obj.Set("color", o.Color)
@@ -711,7 +791,7 @@ func (o ImageTransformBorder) toJS() js.Value {
 	if o.Right != 0 {
 		obj.Set("right", o.Right)
 	}
-	return obj
+	return obj, nil
 }
 
 // TextOptionsFont
@@ -728,10 +808,10 @@ func textOptionsFontFromJS(v js.Value) (TextOptionsFont, error) {
 	return out, nil
 }
 
-func (o TextOptionsFont) toJS() js.Value {
+func (o TextOptionsFont) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.URL != "" {
 		obj.Set("url", o.URL)
 	}
-	return obj
+	return obj, nil
 }

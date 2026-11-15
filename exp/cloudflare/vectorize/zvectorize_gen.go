@@ -64,6 +64,15 @@ func (x *Vectorize) Describe() (VectorizeIndexInfo, error) {
 // @param options Configuration options to massage the returned data.
 // @returns A promise that resolves with matched and scored vectors.
 func (x *Vectorize) Query(vector []float32, options VectorizeQueryOptions) (VectorizeMatches, error) {
+	var err error
+	var arg1 js.Value
+	{
+		jsVectorizeQueryOptions, err := options.toJS()
+		if err != nil {
+			return VectorizeMatches{}, err
+		}
+		arg1 = jsVectorizeQueryOptions
+	}
 	var arg0 js.Value
 	{
 		arr := js.Global().Get("Array").New(len(vector))
@@ -72,7 +81,7 @@ func (x *Vectorize) Query(vector []float32, options VectorizeQueryOptions) (Vect
 		}
 		arg0 = arr
 	}
-	p, err := jsrt.Call(x.v, "query", arg0, options.toJS())
+	p, err := jsrt.Call(x.v, "query", arg0, arg1)
 	if err != nil {
 		return VectorizeMatches{}, err
 	}
@@ -94,7 +103,16 @@ func (x *Vectorize) Query(vector []float32, options VectorizeQueryOptions) (Vect
 // @param options Configuration options to massage the returned data.
 // @returns A promise that resolves with matched and scored vectors.
 func (x *Vectorize) QueryByID(vectorId string, options VectorizeQueryOptions) (VectorizeMatches, error) {
-	p, err := jsrt.Call(x.v, "queryById", vectorId, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsVectorizeQueryOptions, err := options.toJS()
+		if err != nil {
+			return VectorizeMatches{}, err
+		}
+		arg1 = jsVectorizeQueryOptions
+	}
+	p, err := jsrt.Call(x.v, "queryById", vectorId, arg1)
 	if err != nil {
 		return VectorizeMatches{}, err
 	}
@@ -115,11 +133,16 @@ func (x *Vectorize) QueryByID(vectorId string, options VectorizeQueryOptions) (V
 // @param vectors List of vectors that will be inserted.
 // @returns A promise that resolves with a unique identifier of a mutation containing the insert changeset.
 func (x *Vectorize) Insert(vectors []VectorizeVector) (VectorizeAsyncMutation, error) {
+	var err error
 	var arg0 js.Value
 	{
 		arr := js.Global().Get("Array").New(len(vectors))
 		for i, e := range vectors {
-			arr.SetIndex(i, e.toJS())
+			jsVectorizeVector, err := e.toJS()
+			if err != nil {
+				return VectorizeAsyncMutation{}, err
+			}
+			arr.SetIndex(i, jsVectorizeVector)
 		}
 		arg0 = arr
 	}
@@ -144,11 +167,16 @@ func (x *Vectorize) Insert(vectors []VectorizeVector) (VectorizeAsyncMutation, e
 // @param vectors List of vectors that will be upserted.
 // @returns A promise that resolves with a unique identifier of a mutation containing the upsert changeset.
 func (x *Vectorize) Upsert(vectors []VectorizeVector) (VectorizeAsyncMutation, error) {
+	var err error
 	var arg0 js.Value
 	{
 		arr := js.Global().Get("Array").New(len(vectors))
 		for i, e := range vectors {
-			arr.SetIndex(i, e.toJS())
+			jsVectorizeVector, err := e.toJS()
+			if err != nil {
+				return VectorizeAsyncMutation{}, err
+			}
+			arr.SetIndex(i, jsVectorizeVector)
 		}
 		arg0 = arr
 	}
@@ -271,7 +299,7 @@ func vectorizeVectorFromJS(v js.Value) (VectorizeVector, error) {
 	return out, nil
 }
 
-func (o VectorizeVector) toJS() js.Value {
+func (o VectorizeVector) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ID != "" {
 		obj.Set("id", o.ID)
@@ -289,11 +317,15 @@ func (o VectorizeVector) toJS() js.Value {
 	if len(o.Metadata) > 0 {
 		m := jsrt.NewObject()
 		for k, v := range o.Metadata {
-			m.Set(k, v)
+			jv, err := jsrt.AnyToJS(v)
+			if err != nil {
+				return js.Value{}, err
+			}
+			m.Set(k, jv)
 		}
 		obj.Set("metadata", m)
 	}
-	return obj
+	return obj, nil
 }
 
 // VectorizeQueryOptions
@@ -340,7 +372,7 @@ func vectorizeQueryOptionsFromJS(v js.Value) (VectorizeQueryOptions, error) {
 	return out, nil
 }
 
-func (o VectorizeQueryOptions) toJS() js.Value {
+func (o VectorizeQueryOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.TopK != 0 {
 		obj.Set("topK", o.TopK)
@@ -357,11 +389,15 @@ func (o VectorizeQueryOptions) toJS() js.Value {
 	if len(o.Filter) > 0 {
 		m := jsrt.NewObject()
 		for k, v := range o.Filter {
-			m.Set(k, v)
+			jv, err := jsrt.AnyToJS(v)
+			if err != nil {
+				return js.Value{}, err
+			}
+			m.Set(k, jv)
 		}
 		obj.Set("filter", m)
 	}
-	return obj
+	return obj, nil
 }
 
 // VectorizeMatches A set of matching {@link VectorizeMatch} for a particular query.
@@ -388,19 +424,23 @@ func vectorizeMatchesFromJS(v js.Value) (VectorizeMatches, error) {
 	return out, nil
 }
 
-func (o VectorizeMatches) toJS() js.Value {
+func (o VectorizeMatches) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if len(o.Matches) > 0 {
 		arr := js.Global().Get("Array").New(len(o.Matches))
 		for i, e := range o.Matches {
-			arr.SetIndex(i, e.toJS())
+			jsVectorizeMatch, err := e.toJS()
+			if err != nil {
+				return js.Value{}, err
+			}
+			arr.SetIndex(i, jsVectorizeMatch)
 		}
 		obj.Set("matches", arr)
 	}
 	if o.Count != 0 {
 		obj.Set("count", o.Count)
 	}
-	return obj
+	return obj, nil
 }
 
 // VectorizeMatch Represents a matched vector for a query along with its score and (if specified) the matching vector information.
@@ -451,7 +491,7 @@ func vectorizeMatchFromJS(v js.Value) (VectorizeMatch, error) {
 	return out, nil
 }
 
-func (o VectorizeMatch) toJS() js.Value {
+func (o VectorizeMatch) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if len(o.Values) > 0 {
 		arr := js.Global().Get("Array").New(len(o.Values))
@@ -469,14 +509,18 @@ func (o VectorizeMatch) toJS() js.Value {
 	if len(o.Metadata) > 0 {
 		m := jsrt.NewObject()
 		for k, v := range o.Metadata {
-			m.Set(k, v)
+			jv, err := jsrt.AnyToJS(v)
+			if err != nil {
+				return js.Value{}, err
+			}
+			m.Set(k, jv)
 		}
 		obj.Set("metadata", m)
 	}
 	if o.Score != 0 {
 		obj.Set("score", o.Score)
 	}
-	return obj
+	return obj, nil
 }
 
 // VectorizeVectorMutation Results of an operation that performed a mutation on a set of vectors.
@@ -503,7 +547,7 @@ func vectorizeVectorMutationFromJS(v js.Value) (VectorizeVectorMutation, error) 
 	return out, nil
 }
 
-func (o VectorizeVectorMutation) toJS() js.Value {
+func (o VectorizeVectorMutation) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if len(o.Ids) > 0 {
 		arr := js.Global().Get("Array").New(len(o.Ids))
@@ -515,7 +559,7 @@ func (o VectorizeVectorMutation) toJS() js.Value {
 	if o.Count != 0 {
 		obj.Set("count", o.Count)
 	}
-	return obj
+	return obj, nil
 }
 
 // VectorizeIndexInfo Metadata about an existing index.
@@ -547,7 +591,7 @@ func vectorizeIndexInfoFromJS(v js.Value) (VectorizeIndexInfo, error) {
 	return out, nil
 }
 
-func (o VectorizeIndexInfo) toJS() js.Value {
+func (o VectorizeIndexInfo) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.VectorCount != 0 {
 		obj.Set("vectorCount", o.VectorCount)
@@ -561,7 +605,7 @@ func (o VectorizeIndexInfo) toJS() js.Value {
 	if o.ProcessedUpToMutation != 0 {
 		obj.Set("processedUpToMutation", o.ProcessedUpToMutation)
 	}
-	return obj
+	return obj, nil
 }
 
 // VectorizeAsyncMutation Result type indicating a mutation on the Vectorize Index.
@@ -579,10 +623,10 @@ func vectorizeAsyncMutationFromJS(v js.Value) (VectorizeAsyncMutation, error) {
 	return out, nil
 }
 
-func (o VectorizeAsyncMutation) toJS() js.Value {
+func (o VectorizeAsyncMutation) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.MutationID != "" {
 		obj.Set("mutationId", o.MutationID)
 	}
-	return obj
+	return obj, nil
 }

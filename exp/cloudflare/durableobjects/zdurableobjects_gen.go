@@ -115,7 +115,16 @@ func (x *DurableObjectState) GetTags(ws js.Value) ([]string, error) {
 
 // Abort
 func (x *DurableObjectState) Abort(reason string, options DurableObjectAbortOptions) error {
-	_, err := jsrt.Call(x.v, "abort", reason, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsDurableObjectAbortOptions, err := options.toJS()
+		if err != nil {
+			return err
+		}
+		arg1 = jsDurableObjectAbortOptions
+	}
+	_, err = jsrt.Call(x.v, "abort", reason, arg1)
 	return err
 }
 
@@ -130,7 +139,16 @@ func (x *DurableObjectStorage) JSValue() js.Value { return x.v }
 
 // Get
 func (x *DurableObjectStorage) Get(key string, options DurableObjectGetOptions) (js.Value, error) {
-	p, err := jsrt.Call(x.v, "get", key, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsDurableObjectGetOptions, err := options.toJS()
+		if err != nil {
+			return js.Undefined(), err
+		}
+		arg1 = jsDurableObjectGetOptions
+	}
+	p, err := jsrt.Call(x.v, "get", key, arg1)
 	if err != nil {
 		return js.Undefined(), err
 	}
@@ -145,6 +163,15 @@ func (x *DurableObjectStorage) Get(key string, options DurableObjectGetOptions) 
 
 // GetMultiple
 func (x *DurableObjectStorage) GetMultiple(keys []string, options DurableObjectGetOptions) (map[string]js.Value, error) {
+	var err error
+	var arg1 js.Value
+	{
+		jsDurableObjectGetOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg1 = jsDurableObjectGetOptions
+	}
 	var arg0 js.Value
 	{
 		arr := js.Global().Get("Array").New(len(keys))
@@ -153,7 +180,7 @@ func (x *DurableObjectStorage) GetMultiple(keys []string, options DurableObjectG
 		}
 		arg0 = arr
 	}
-	p, err := jsrt.Call(x.v, "get", arg0, options.toJS())
+	p, err := jsrt.Call(x.v, "get", arg0, arg1)
 	if err != nil {
 		return nil, err
 	}
@@ -175,7 +202,16 @@ func (x *DurableObjectStorage) GetMultiple(keys []string, options DurableObjectG
 
 // List
 func (x *DurableObjectStorage) List(options DurableObjectListOptions) (map[string]js.Value, error) {
-	p, err := jsrt.Call(x.v, "list", options.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsDurableObjectListOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg0 = jsDurableObjectListOptions
+	}
+	p, err := jsrt.Call(x.v, "list", arg0)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +233,16 @@ func (x *DurableObjectStorage) List(options DurableObjectListOptions) (map[strin
 
 // Put
 func (x *DurableObjectStorage) Put(key string, value js.Value, options DurableObjectPutOptions) error {
-	p, err := jsrt.Call(x.v, "put", key, value, options.toJS())
+	var err error
+	var arg2 js.Value
+	{
+		jsDurableObjectPutOptions, err := options.toJS()
+		if err != nil {
+			return err
+		}
+		arg2 = jsDurableObjectPutOptions
+	}
+	p, err := jsrt.Call(x.v, "put", key, value, arg2)
 	if err != nil {
 		return err
 	}
@@ -207,6 +252,15 @@ func (x *DurableObjectStorage) Put(key string, value js.Value, options DurableOb
 
 // PutMultiple
 func (x *DurableObjectStorage) PutMultiple(entries map[string]js.Value, options DurableObjectPutOptions) error {
+	var err error
+	var arg1 js.Value
+	{
+		jsDurableObjectPutOptions, err := options.toJS()
+		if err != nil {
+			return err
+		}
+		arg1 = jsDurableObjectPutOptions
+	}
 	var arg0 js.Value
 	{
 		m := jsrt.NewObject()
@@ -215,7 +269,7 @@ func (x *DurableObjectStorage) PutMultiple(entries map[string]js.Value, options 
 		}
 		arg0 = m
 	}
-	p, err := jsrt.Call(x.v, "put", arg0, options.toJS())
+	p, err := jsrt.Call(x.v, "put", arg0, arg1)
 	if err != nil {
 		return err
 	}
@@ -225,7 +279,16 @@ func (x *DurableObjectStorage) PutMultiple(entries map[string]js.Value, options 
 
 // Delete
 func (x *DurableObjectStorage) Delete(key string, options DurableObjectPutOptions) (bool, error) {
-	p, err := jsrt.Call(x.v, "delete", key, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsDurableObjectPutOptions, err := options.toJS()
+		if err != nil {
+			return false, err
+		}
+		arg1 = jsDurableObjectPutOptions
+	}
+	p, err := jsrt.Call(x.v, "delete", key, arg1)
 	if err != nil {
 		return false, err
 	}
@@ -240,6 +303,15 @@ func (x *DurableObjectStorage) Delete(key string, options DurableObjectPutOption
 
 // DeleteMultiple
 func (x *DurableObjectStorage) DeleteMultiple(keys []string, options DurableObjectPutOptions) (float64, error) {
+	var err error
+	var arg1 js.Value
+	{
+		jsDurableObjectPutOptions, err := options.toJS()
+		if err != nil {
+			return 0, err
+		}
+		arg1 = jsDurableObjectPutOptions
+	}
 	var arg0 js.Value
 	{
 		arr := js.Global().Get("Array").New(len(keys))
@@ -248,7 +320,7 @@ func (x *DurableObjectStorage) DeleteMultiple(keys []string, options DurableObje
 		}
 		arg0 = arr
 	}
-	p, err := jsrt.Call(x.v, "delete", arg0, options.toJS())
+	p, err := jsrt.Call(x.v, "delete", arg0, arg1)
 	if err != nil {
 		return 0, err
 	}
@@ -263,7 +335,16 @@ func (x *DurableObjectStorage) DeleteMultiple(keys []string, options DurableObje
 
 // DeleteAll
 func (x *DurableObjectStorage) DeleteAll(options DurableObjectPutOptions) error {
-	p, err := jsrt.Call(x.v, "deleteAll", options.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsDurableObjectPutOptions, err := options.toJS()
+		if err != nil {
+			return err
+		}
+		arg0 = jsDurableObjectPutOptions
+	}
+	p, err := jsrt.Call(x.v, "deleteAll", arg0)
 	if err != nil {
 		return err
 	}
@@ -298,7 +379,16 @@ func (x *DurableObjectStorage) Transaction(closure func(*DurableObjectTransactio
 
 // GetAlarm
 func (x *DurableObjectStorage) GetAlarm(options DurableObjectGetAlarmOptions) (*float64, error) {
-	p, err := jsrt.Call(x.v, "getAlarm", options.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsDurableObjectGetAlarmOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg0 = jsDurableObjectGetAlarmOptions
+	}
+	p, err := jsrt.Call(x.v, "getAlarm", arg0)
 	if err != nil {
 		return nil, err
 	}
@@ -317,7 +407,16 @@ func (x *DurableObjectStorage) GetAlarm(options DurableObjectGetAlarmOptions) (*
 
 // SetAlarm
 func (x *DurableObjectStorage) SetAlarm(scheduledTime time.Time, options DurableObjectSetAlarmOptions) error {
-	p, err := jsrt.Call(x.v, "setAlarm", jsrt.TimeToDate(scheduledTime), options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsDurableObjectSetAlarmOptions, err := options.toJS()
+		if err != nil {
+			return err
+		}
+		arg1 = jsDurableObjectSetAlarmOptions
+	}
+	p, err := jsrt.Call(x.v, "setAlarm", jsrt.TimeToDate(scheduledTime), arg1)
 	if err != nil {
 		return err
 	}
@@ -327,7 +426,16 @@ func (x *DurableObjectStorage) SetAlarm(scheduledTime time.Time, options Durable
 
 // DeleteAlarm
 func (x *DurableObjectStorage) DeleteAlarm(options DurableObjectSetAlarmOptions) error {
-	p, err := jsrt.Call(x.v, "deleteAlarm", options.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsDurableObjectSetAlarmOptions, err := options.toJS()
+		if err != nil {
+			return err
+		}
+		arg0 = jsDurableObjectSetAlarmOptions
+	}
+	p, err := jsrt.Call(x.v, "deleteAlarm", arg0)
 	if err != nil {
 		return err
 	}
@@ -373,7 +481,7 @@ func durableObjectGetOptionsFromJS(v js.Value) (DurableObjectGetOptions, error) 
 	return out, nil
 }
 
-func (o DurableObjectGetOptions) toJS() js.Value {
+func (o DurableObjectGetOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.AllowConcurrency {
 		obj.Set("allowConcurrency", o.AllowConcurrency)
@@ -381,7 +489,7 @@ func (o DurableObjectGetOptions) toJS() js.Value {
 	if o.NoCache {
 		obj.Set("noCache", o.NoCache)
 	}
-	return obj
+	return obj, nil
 }
 
 // DurableObjectPutOptions
@@ -411,7 +519,7 @@ func durableObjectPutOptionsFromJS(v js.Value) (DurableObjectPutOptions, error) 
 	return out, nil
 }
 
-func (o DurableObjectPutOptions) toJS() js.Value {
+func (o DurableObjectPutOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.AllowConcurrency {
 		obj.Set("allowConcurrency", o.AllowConcurrency)
@@ -422,7 +530,7 @@ func (o DurableObjectPutOptions) toJS() js.Value {
 	if o.NoCache {
 		obj.Set("noCache", o.NoCache)
 	}
-	return obj
+	return obj, nil
 }
 
 // DurableObjectListOptions
@@ -482,7 +590,7 @@ func durableObjectListOptionsFromJS(v js.Value) (DurableObjectListOptions, error
 	return out, nil
 }
 
-func (o DurableObjectListOptions) toJS() js.Value {
+func (o DurableObjectListOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Start != "" {
 		obj.Set("start", o.Start)
@@ -508,7 +616,7 @@ func (o DurableObjectListOptions) toJS() js.Value {
 	if o.NoCache {
 		obj.Set("noCache", o.NoCache)
 	}
-	return obj
+	return obj, nil
 }
 
 // DurableObjectSetAlarmOptions
@@ -532,7 +640,7 @@ func durableObjectSetAlarmOptionsFromJS(v js.Value) (DurableObjectSetAlarmOption
 	return out, nil
 }
 
-func (o DurableObjectSetAlarmOptions) toJS() js.Value {
+func (o DurableObjectSetAlarmOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.AllowConcurrency {
 		obj.Set("allowConcurrency", o.AllowConcurrency)
@@ -540,7 +648,7 @@ func (o DurableObjectSetAlarmOptions) toJS() js.Value {
 	if o.AllowUnconfirmed {
 		obj.Set("allowUnconfirmed", o.AllowUnconfirmed)
 	}
-	return obj
+	return obj, nil
 }
 
 // DurableObjectGetAlarmOptions
@@ -558,12 +666,12 @@ func durableObjectGetAlarmOptionsFromJS(v js.Value) (DurableObjectGetAlarmOption
 	return out, nil
 }
 
-func (o DurableObjectGetAlarmOptions) toJS() js.Value {
+func (o DurableObjectGetAlarmOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.AllowConcurrency {
 		obj.Set("allowConcurrency", o.AllowConcurrency)
 	}
-	return obj
+	return obj, nil
 }
 
 // DurableObjectAbortOptions
@@ -581,12 +689,12 @@ func durableObjectAbortOptionsFromJS(v js.Value) (DurableObjectAbortOptions, err
 	return out, nil
 }
 
-func (o DurableObjectAbortOptions) toJS() js.Value {
+func (o DurableObjectAbortOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.RetryAlarm {
 		obj.Set("retryAlarm", o.RetryAlarm)
 	}
-	return obj
+	return obj, nil
 }
 
 // DurableObjectID
@@ -660,7 +768,16 @@ func NewDurableObjectNamespace(bindingName string) (*DurableObjectNamespace, err
 
 // NewUniqueID
 func (x *DurableObjectNamespace) NewUniqueID(options DurableObjectNamespaceNewUniqueIDOptions) (*DurableObjectID, error) {
-	r, err := jsrt.Call(x.v, "newUniqueId", options.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsDurableObjectNamespaceNewUniqueIDOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg0 = jsDurableObjectNamespaceNewUniqueIDOptions
+	}
+	r, err := jsrt.Call(x.v, "newUniqueId", arg0)
 	if err != nil {
 		return nil, err
 	}
@@ -693,7 +810,16 @@ func (x *DurableObjectNamespace) IDFromString(id string) (*DurableObjectID, erro
 
 // Get
 func (x *DurableObjectNamespace) Get(id *DurableObjectID, options DurableObjectNamespaceGetDurableObjectOptions) (js.Value, error) {
-	r, err := jsrt.Call(x.v, "get", id.JSValue(), options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsDurableObjectNamespaceGetDurableObjectOptions, err := options.toJS()
+		if err != nil {
+			return js.Undefined(), err
+		}
+		arg1 = jsDurableObjectNamespaceGetDurableObjectOptions
+	}
+	r, err := jsrt.Call(x.v, "get", id.JSValue(), arg1)
 	if err != nil {
 		return js.Undefined(), err
 	}
@@ -704,7 +830,16 @@ func (x *DurableObjectNamespace) Get(id *DurableObjectID, options DurableObjectN
 
 // GetByName
 func (x *DurableObjectNamespace) GetByName(name string, options DurableObjectNamespaceGetDurableObjectOptions) (js.Value, error) {
-	r, err := jsrt.Call(x.v, "getByName", name, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsDurableObjectNamespaceGetDurableObjectOptions, err := options.toJS()
+		if err != nil {
+			return js.Undefined(), err
+		}
+		arg1 = jsDurableObjectNamespaceGetDurableObjectOptions
+	}
+	r, err := jsrt.Call(x.v, "getByName", name, arg1)
 	if err != nil {
 		return js.Undefined(), err
 	}
@@ -739,12 +874,12 @@ func durableObjectNamespaceNewUniqueIDOptionsFromJS(v js.Value) (DurableObjectNa
 	return out, nil
 }
 
-func (o DurableObjectNamespaceNewUniqueIDOptions) toJS() js.Value {
+func (o DurableObjectNamespaceNewUniqueIDOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Jurisdiction != "" {
 		obj.Set("jurisdiction", string(o.Jurisdiction))
 	}
-	return obj
+	return obj, nil
 }
 
 // DurableObjectNamespaceGetDurableObjectOptions
@@ -768,7 +903,7 @@ func durableObjectNamespaceGetDurableObjectOptionsFromJS(v js.Value) (DurableObj
 	return out, nil
 }
 
-func (o DurableObjectNamespaceGetDurableObjectOptions) toJS() js.Value {
+func (o DurableObjectNamespaceGetDurableObjectOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.LocationHint != "" {
 		obj.Set("locationHint", string(o.LocationHint))
@@ -776,7 +911,7 @@ func (o DurableObjectNamespaceGetDurableObjectOptions) toJS() js.Value {
 	if o.RoutingMode != "" {
 		obj.Set("routingMode", o.RoutingMode)
 	}
-	return obj
+	return obj, nil
 }
 
 // DurableObjectJurisdiction
@@ -818,9 +953,15 @@ func SQLStorageFromJS(v js.Value) *SQLStorage { return &SQLStorage{v: v} }
 // JSValue returns the underlying JS value.
 func (x *SQLStorage) JSValue() js.Value { return x.v }
 
-// Exec
-func (x *SQLStorage) Exec(query string, bindings ...any) (*SQLStorageCursor, error) {
-	r, err := jsrt.Call(x.v, "exec", append([]any{query}, bindings...)...)
+// exec
+func (x *SQLStorage) exec(query string, bindings ...any) (*SQLStorageCursor, error) {
+	var err error
+	var arg1 []any
+	arg1, err = jsrt.AnyArgs(bindings)
+	if err != nil {
+		return nil, err
+	}
+	r, err := jsrt.Call(x.v, "exec", append([]any{query}, arg1...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -915,7 +1056,7 @@ func alarmInvocationInfoFromJS(v js.Value) (AlarmInvocationInfo, error) {
 	return out, nil
 }
 
-func (o AlarmInvocationInfo) toJS() js.Value {
+func (o AlarmInvocationInfo) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.IsRetry {
 		obj.Set("isRetry", o.IsRetry)
@@ -926,7 +1067,7 @@ func (o AlarmInvocationInfo) toJS() js.Value {
 	if o.ScheduledTime != 0 {
 		obj.Set("scheduledTime", o.ScheduledTime)
 	}
-	return obj
+	return obj, nil
 }
 
 // DurableObjectTransaction
@@ -942,7 +1083,16 @@ func (x *DurableObjectTransaction) JSValue() js.Value { return x.v }
 
 // Get
 func (x *DurableObjectTransaction) Get(key string, options DurableObjectGetOptions) (js.Value, error) {
-	p, err := jsrt.Call(x.v, "get", key, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsDurableObjectGetOptions, err := options.toJS()
+		if err != nil {
+			return js.Undefined(), err
+		}
+		arg1 = jsDurableObjectGetOptions
+	}
+	p, err := jsrt.Call(x.v, "get", key, arg1)
 	if err != nil {
 		return js.Undefined(), err
 	}
@@ -957,6 +1107,15 @@ func (x *DurableObjectTransaction) Get(key string, options DurableObjectGetOptio
 
 // GetMultiple
 func (x *DurableObjectTransaction) GetMultiple(keys []string, options DurableObjectGetOptions) (map[string]js.Value, error) {
+	var err error
+	var arg1 js.Value
+	{
+		jsDurableObjectGetOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg1 = jsDurableObjectGetOptions
+	}
 	var arg0 js.Value
 	{
 		arr := js.Global().Get("Array").New(len(keys))
@@ -965,7 +1124,7 @@ func (x *DurableObjectTransaction) GetMultiple(keys []string, options DurableObj
 		}
 		arg0 = arr
 	}
-	p, err := jsrt.Call(x.v, "get", arg0, options.toJS())
+	p, err := jsrt.Call(x.v, "get", arg0, arg1)
 	if err != nil {
 		return nil, err
 	}
@@ -987,7 +1146,16 @@ func (x *DurableObjectTransaction) GetMultiple(keys []string, options DurableObj
 
 // List
 func (x *DurableObjectTransaction) List(options DurableObjectListOptions) (map[string]js.Value, error) {
-	p, err := jsrt.Call(x.v, "list", options.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsDurableObjectListOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg0 = jsDurableObjectListOptions
+	}
+	p, err := jsrt.Call(x.v, "list", arg0)
 	if err != nil {
 		return nil, err
 	}
@@ -1009,7 +1177,16 @@ func (x *DurableObjectTransaction) List(options DurableObjectListOptions) (map[s
 
 // Put
 func (x *DurableObjectTransaction) Put(key string, value js.Value, options DurableObjectPutOptions) error {
-	p, err := jsrt.Call(x.v, "put", key, value, options.toJS())
+	var err error
+	var arg2 js.Value
+	{
+		jsDurableObjectPutOptions, err := options.toJS()
+		if err != nil {
+			return err
+		}
+		arg2 = jsDurableObjectPutOptions
+	}
+	p, err := jsrt.Call(x.v, "put", key, value, arg2)
 	if err != nil {
 		return err
 	}
@@ -1019,6 +1196,15 @@ func (x *DurableObjectTransaction) Put(key string, value js.Value, options Durab
 
 // PutMultiple
 func (x *DurableObjectTransaction) PutMultiple(entries map[string]js.Value, options DurableObjectPutOptions) error {
+	var err error
+	var arg1 js.Value
+	{
+		jsDurableObjectPutOptions, err := options.toJS()
+		if err != nil {
+			return err
+		}
+		arg1 = jsDurableObjectPutOptions
+	}
 	var arg0 js.Value
 	{
 		m := jsrt.NewObject()
@@ -1027,7 +1213,7 @@ func (x *DurableObjectTransaction) PutMultiple(entries map[string]js.Value, opti
 		}
 		arg0 = m
 	}
-	p, err := jsrt.Call(x.v, "put", arg0, options.toJS())
+	p, err := jsrt.Call(x.v, "put", arg0, arg1)
 	if err != nil {
 		return err
 	}
@@ -1037,7 +1223,16 @@ func (x *DurableObjectTransaction) PutMultiple(entries map[string]js.Value, opti
 
 // Delete
 func (x *DurableObjectTransaction) Delete(key string, options DurableObjectPutOptions) (bool, error) {
-	p, err := jsrt.Call(x.v, "delete", key, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsDurableObjectPutOptions, err := options.toJS()
+		if err != nil {
+			return false, err
+		}
+		arg1 = jsDurableObjectPutOptions
+	}
+	p, err := jsrt.Call(x.v, "delete", key, arg1)
 	if err != nil {
 		return false, err
 	}
@@ -1052,6 +1247,15 @@ func (x *DurableObjectTransaction) Delete(key string, options DurableObjectPutOp
 
 // DeleteMultiple
 func (x *DurableObjectTransaction) DeleteMultiple(keys []string, options DurableObjectPutOptions) (float64, error) {
+	var err error
+	var arg1 js.Value
+	{
+		jsDurableObjectPutOptions, err := options.toJS()
+		if err != nil {
+			return 0, err
+		}
+		arg1 = jsDurableObjectPutOptions
+	}
 	var arg0 js.Value
 	{
 		arr := js.Global().Get("Array").New(len(keys))
@@ -1060,7 +1264,7 @@ func (x *DurableObjectTransaction) DeleteMultiple(keys []string, options Durable
 		}
 		arg0 = arr
 	}
-	p, err := jsrt.Call(x.v, "delete", arg0, options.toJS())
+	p, err := jsrt.Call(x.v, "delete", arg0, arg1)
 	if err != nil {
 		return 0, err
 	}
@@ -1081,7 +1285,16 @@ func (x *DurableObjectTransaction) Rollback() error {
 
 // GetAlarm
 func (x *DurableObjectTransaction) GetAlarm(options DurableObjectGetAlarmOptions) (*float64, error) {
-	p, err := jsrt.Call(x.v, "getAlarm", options.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsDurableObjectGetAlarmOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg0 = jsDurableObjectGetAlarmOptions
+	}
+	p, err := jsrt.Call(x.v, "getAlarm", arg0)
 	if err != nil {
 		return nil, err
 	}
@@ -1100,7 +1313,16 @@ func (x *DurableObjectTransaction) GetAlarm(options DurableObjectGetAlarmOptions
 
 // SetAlarm
 func (x *DurableObjectTransaction) SetAlarm(scheduledTime time.Time, options DurableObjectSetAlarmOptions) error {
-	p, err := jsrt.Call(x.v, "setAlarm", jsrt.TimeToDate(scheduledTime), options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsDurableObjectSetAlarmOptions, err := options.toJS()
+		if err != nil {
+			return err
+		}
+		arg1 = jsDurableObjectSetAlarmOptions
+	}
+	p, err := jsrt.Call(x.v, "setAlarm", jsrt.TimeToDate(scheduledTime), arg1)
 	if err != nil {
 		return err
 	}
@@ -1110,7 +1332,16 @@ func (x *DurableObjectTransaction) SetAlarm(scheduledTime time.Time, options Dur
 
 // DeleteAlarm
 func (x *DurableObjectTransaction) DeleteAlarm(options DurableObjectSetAlarmOptions) error {
-	p, err := jsrt.Call(x.v, "deleteAlarm", options.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsDurableObjectSetAlarmOptions, err := options.toJS()
+		if err != nil {
+			return err
+		}
+		arg0 = jsDurableObjectSetAlarmOptions
+	}
+	p, err := jsrt.Call(x.v, "deleteAlarm", arg0)
 	if err != nil {
 		return err
 	}

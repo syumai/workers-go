@@ -88,6 +88,7 @@ func TestDurableObject(t *testing.T) {
 
 	t.Run("rpc", testDurableObjectRPC(w))
 	t.Run("sql", testDurableObjectSQL(w))
+	t.Run("rawbind", testDurableObjectRawBind(w))
 	t.Run("opendb", testDurableObjectOpenDB(w))
 	t.Run("transaction", testDurableObjectTransaction(w))
 	t.Run("blockConcurrencyWhile", testDurableObjectBlockConcurrencyWhile(w))
