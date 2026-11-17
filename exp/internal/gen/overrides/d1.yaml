@@ -1,0 +1,24 @@
+package: d1
+doc: |
+  Package d1 provides the D1 database binding
+  (https://developers.cloudflare.com/d1/), generated from workers-types.
+  It covers D1Database (prepare, batch, exec, withSession), D1PreparedStatement
+  (bind, first, run, all, raw) and the result types. cloudflare/d1 wraps it
+  to provide the database/sql driver and Batch.
+include:
+  - D1Database
+  - D1DatabaseSession
+  - D1PreparedStatement
+  - D1Result
+  - D1Response
+  - D1Meta
+  - D1ExecResult
+bindings:
+  - D1Database
+overloads:
+  D1PreparedStatement.first:
+    - { index: 0, name: FirstColumn }
+    - { index: 1, name: First }
+  D1PreparedStatement.raw:
+    - { index: 0, name: RawWithColumnNames }
+    - { index: 1, name: Raw }

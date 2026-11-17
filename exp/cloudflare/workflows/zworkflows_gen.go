@@ -51,7 +51,16 @@ func (x *Workflow) Get(id string) (*WorkflowInstance, error) {
 // @param options Options when creating an instance including id and params
 // @returns A promise that resolves with a handle for the Instance
 func (x *Workflow) Create(options WorkflowInstanceCreateOptions) (*WorkflowInstance, error) {
-	p, err := jsrt.Call(x.v, "create", options.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsWorkflowInstanceCreateOptions, err := options.toJS()
+		if err != nil {
+			return nil, err
+		}
+		arg0 = jsWorkflowInstanceCreateOptions
+	}
+	p, err := jsrt.Call(x.v, "create", arg0)
 	if err != nil {
 		return nil, err
 	}
@@ -69,11 +78,16 @@ func (x *Workflow) Create(options WorkflowInstanceCreateOptions) (*WorkflowInsta
 // @param batch List of Options when creating an instance including name and params
 // @returns A promise that resolves with a list of handles for the created instances.
 func (x *Workflow) CreateBatch(batch []WorkflowInstanceCreateOptions) ([]*WorkflowInstance, error) {
+	var err error
 	var arg0 js.Value
 	{
 		arr := js.Global().Get("Array").New(len(batch))
 		for i, e := range batch {
-			arr.SetIndex(i, e.toJS())
+			jsWorkflowInstanceCreateOptions, err := e.toJS()
+			if err != nil {
+				return nil, err
+			}
+			arr.SetIndex(i, jsWorkflowInstanceCreateOptions)
 		}
 		arg0 = arr
 	}
@@ -163,7 +177,16 @@ func (x *WorkflowInstance) Resume() error {
 // Terminate Terminate the instance. If it is errored, terminated or complete, an error will be thrown.
 // @param options Options for termination, including whether registered rollback handlers should run.
 func (x *WorkflowInstance) Terminate(options WorkflowInstanceTerminateOptions) error {
-	p, err := jsrt.Call(x.v, "terminate", options.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsWorkflowInstanceTerminateOptions, err := options.toJS()
+		if err != nil {
+			return err
+		}
+		arg0 = jsWorkflowInstanceTerminateOptions
+	}
+	p, err := jsrt.Call(x.v, "terminate", arg0)
 	if err != nil {
 		return err
 	}
@@ -175,7 +198,16 @@ func (x *WorkflowInstance) Terminate(options WorkflowInstanceTerminateOptions) e
 // cached results for all steps before it.
 // @param options Options for the restart, including an optional step to restart from.
 func (x *WorkflowInstance) Restart(options WorkflowInstanceRestartOptions) error {
-	p, err := jsrt.Call(x.v, "restart", options.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsWorkflowInstanceRestartOptions, err := options.toJS()
+		if err != nil {
+			return err
+		}
+		arg0 = jsWorkflowInstanceRestartOptions
+	}
+	p, err := jsrt.Call(x.v, "restart", arg0)
 	if err != nil {
 		return err
 	}
@@ -214,7 +246,16 @@ func (x *WorkflowInstance) Status() (InstanceStatus, error) {
 
 // SendEvent Send an event to this instance.
 func (x *WorkflowInstance) SendEvent(event WorkflowInstanceSendEventEvent) error {
-	p, err := jsrt.Call(x.v, "sendEvent", event.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsWorkflowInstanceSendEventEvent, err := event.toJS()
+		if err != nil {
+			return err
+		}
+		arg0 = jsWorkflowInstanceSendEventEvent
+	}
+	p, err := jsrt.Call(x.v, "sendEvent", arg0)
 	if err != nil {
 		return err
 	}
@@ -267,7 +308,7 @@ func workflowInstanceCreateOptionsFromJS(v js.Value) (WorkflowInstanceCreateOpti
 	return out, nil
 }
 
-func (o WorkflowInstanceCreateOptions) toJS() js.Value {
+func (o WorkflowInstanceCreateOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ID != "" {
 		obj.Set("id", o.ID)
@@ -276,12 +317,16 @@ func (o WorkflowInstanceCreateOptions) toJS() js.Value {
 		obj.Set("params", o.Params)
 	}
 	if o.Retention != nil {
-		obj.Set("retention", (*o.Retention).toJS())
+		jsWorkflowInstanceCreateOptionsRetention, err := (*o.Retention).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("retention", jsWorkflowInstanceCreateOptionsRetention)
 	}
 	if o.LocationHint != "" {
 		obj.Set("locationHint", string(o.LocationHint))
 	}
-	return obj
+	return obj, nil
 }
 
 // WorkflowInstanceTerminateOptions
@@ -301,12 +346,12 @@ func workflowInstanceTerminateOptionsFromJS(v js.Value) (WorkflowInstanceTermina
 	return out, nil
 }
 
-func (o WorkflowInstanceTerminateOptions) toJS() js.Value {
+func (o WorkflowInstanceTerminateOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Rollback {
 		obj.Set("rollback", o.Rollback)
 	}
-	return obj
+	return obj, nil
 }
 
 // WorkflowInstanceRestartOptions
@@ -332,12 +377,16 @@ func workflowInstanceRestartOptionsFromJS(v js.Value) (WorkflowInstanceRestartOp
 	return out, nil
 }
 
-func (o WorkflowInstanceRestartOptions) toJS() js.Value {
+func (o WorkflowInstanceRestartOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.From != nil {
-		obj.Set("from", (*o.From).toJS())
+		jsWorkflowInstanceRestartOptionsFrom, err := (*o.From).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("from", jsWorkflowInstanceRestartOptionsFrom)
 	}
-	return obj
+	return obj, nil
 }
 
 // WorkflowInstanceLocationHint Geographic regions supported when creating a Workflow instance.
@@ -389,23 +438,31 @@ func workflowBatchDeleteResultFromJS(v js.Value) (WorkflowBatchDeleteResult, err
 	return out, nil
 }
 
-func (o WorkflowBatchDeleteResult) toJS() js.Value {
+func (o WorkflowBatchDeleteResult) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if len(o.Deleted) > 0 {
 		arr := js.Global().Get("Array").New(len(o.Deleted))
 		for i, e := range o.Deleted {
-			arr.SetIndex(i, e.toJS())
+			jsWorkflowBatchDeleteResultDeleted, err := e.toJS()
+			if err != nil {
+				return js.Value{}, err
+			}
+			arr.SetIndex(i, jsWorkflowBatchDeleteResultDeleted)
 		}
 		obj.Set("deleted", arr)
 	}
 	if len(o.Errors) > 0 {
 		arr := js.Global().Get("Array").New(len(o.Errors))
 		for i, e := range o.Errors {
-			arr.SetIndex(i, e.toJS())
+			jsWorkflowBatchDeleteResultErrors, err := e.toJS()
+			if err != nil {
+				return js.Value{}, err
+			}
+			arr.SetIndex(i, jsWorkflowBatchDeleteResultErrors)
 		}
 		obj.Set("errors", arr)
 	}
-	return obj
+	return obj, nil
 }
 
 // InstanceStatus
@@ -439,18 +496,22 @@ func instanceStatusFromJS(v js.Value) (InstanceStatus, error) {
 	return out, nil
 }
 
-func (o InstanceStatus) toJS() js.Value {
+func (o InstanceStatus) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Status != "" {
 		obj.Set("status", o.Status)
 	}
 	if o.Error != nil {
-		obj.Set("error", (*o.Error).toJS())
+		jsInstanceStatusError, err := (*o.Error).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("error", jsInstanceStatusError)
 	}
 	if !jsrt.IsNil(o.Output) {
 		obj.Set("output", o.Output)
 	}
-	return obj
+	return obj, nil
 }
 
 // WorkflowRetentionDuration
@@ -473,7 +534,7 @@ func workflowInstanceSendEventEventFromJS(v js.Value) (WorkflowInstanceSendEvent
 	return out, nil
 }
 
-func (o WorkflowInstanceSendEventEvent) toJS() js.Value {
+func (o WorkflowInstanceSendEventEvent) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Type != "" {
 		obj.Set("type", o.Type)
@@ -481,7 +542,7 @@ func (o WorkflowInstanceSendEventEvent) toJS() js.Value {
 	if !jsrt.IsNil(o.Payload) {
 		obj.Set("payload", o.Payload)
 	}
-	return obj
+	return obj, nil
 }
 
 // WorkflowInstanceCreateOptionsRetention
@@ -505,7 +566,7 @@ func workflowInstanceCreateOptionsRetentionFromJS(v js.Value) (WorkflowInstanceC
 	return out, nil
 }
 
-func (o WorkflowInstanceCreateOptionsRetention) toJS() js.Value {
+func (o WorkflowInstanceCreateOptionsRetention) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if !jsrt.IsNil(o.SuccessRetention) {
 		obj.Set("successRetention", o.SuccessRetention)
@@ -513,7 +574,7 @@ func (o WorkflowInstanceCreateOptionsRetention) toJS() js.Value {
 	if !jsrt.IsNil(o.ErrorRetention) {
 		obj.Set("errorRetention", o.ErrorRetention)
 	}
-	return obj
+	return obj, nil
 }
 
 // WorkflowInstanceRestartOptionsFrom
@@ -545,7 +606,7 @@ func workflowInstanceRestartOptionsFromFromJS(v js.Value) (WorkflowInstanceResta
 	return out, nil
 }
 
-func (o WorkflowInstanceRestartOptionsFrom) toJS() js.Value {
+func (o WorkflowInstanceRestartOptionsFrom) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Name != "" {
 		obj.Set("name", o.Name)
@@ -556,7 +617,7 @@ func (o WorkflowInstanceRestartOptionsFrom) toJS() js.Value {
 	if o.Type != "" {
 		obj.Set("type", o.Type)
 	}
-	return obj
+	return obj, nil
 }
 
 // WorkflowBatchDeleteResultDeleted
@@ -572,12 +633,12 @@ func workflowBatchDeleteResultDeletedFromJS(v js.Value) (WorkflowBatchDeleteResu
 	return out, nil
 }
 
-func (o WorkflowBatchDeleteResultDeleted) toJS() js.Value {
+func (o WorkflowBatchDeleteResultDeleted) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ID != "" {
 		obj.Set("id", o.ID)
 	}
-	return obj
+	return obj, nil
 }
 
 // WorkflowBatchDeleteResultErrors
@@ -601,7 +662,7 @@ func workflowBatchDeleteResultErrorsFromJS(v js.Value) (WorkflowBatchDeleteResul
 	return out, nil
 }
 
-func (o WorkflowBatchDeleteResultErrors) toJS() js.Value {
+func (o WorkflowBatchDeleteResultErrors) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ID != "" {
 		obj.Set("id", o.ID)
@@ -612,7 +673,7 @@ func (o WorkflowBatchDeleteResultErrors) toJS() js.Value {
 	if o.Message != "" {
 		obj.Set("message", o.Message)
 	}
-	return obj
+	return obj, nil
 }
 
 // InstanceStatusError
@@ -632,7 +693,7 @@ func instanceStatusErrorFromJS(v js.Value) (InstanceStatusError, error) {
 	return out, nil
 }
 
-func (o InstanceStatusError) toJS() js.Value {
+func (o InstanceStatusError) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Name != "" {
 		obj.Set("name", o.Name)
@@ -640,5 +701,5 @@ func (o InstanceStatusError) toJS() js.Value {
 	if o.Message != "" {
 		obj.Set("message", o.Message)
 	}
-	return obj
+	return obj, nil
 }

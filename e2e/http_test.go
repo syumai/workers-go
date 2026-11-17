@@ -281,6 +281,8 @@ func TestKitchenSink(t *testing.T) {
 	t.Run("d1/create_insert_query", testD1CreateInsertQuery(w))
 	t.Run("d1/blob_roundtrip", testD1BlobRoundtrip(w))
 	t.Run("d1/null_real_text", testD1NullRealText(w))
+	t.Run("d1/batch", testD1Batch(w))
+	t.Run("d1/batch_rollback", testD1BatchRollback(w))
 
 	t.Run("queue/roundtrip", testQueueRoundtrip(w))
 	t.Run("queue/send_batch_content_types", testQueueSendBatchContentTypes(w))

@@ -48,6 +48,10 @@ var fixtures = []fixture{
 	// do.mjs, re-exported by entry.mjs alongside this generated subclass.
 	{name: "durableobject", assetsGenArgs: []string{"-durable-objects=Notebook"}},
 	{name: "sockets"},
+	// Recorder drives generated bindings that wrangler dev cannot simulate
+	// (Vectorize, dispatch namespaces, Workers AI) against fakes that report
+	// the JS values they received. See testdata/workers/recorder.
+	{name: "recorder"},
 	{name: "pages"},
 	{name: "websocket"},
 	// E2EWorkflow is a Go-hosted Workflow class. -workflows appends the

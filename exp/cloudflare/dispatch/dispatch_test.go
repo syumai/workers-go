@@ -75,3 +75,42 @@ func TestDispatchNamespace_GetClient(t *testing.T) {
 		t.Fatal("GetClient() returned a nil *fetch.Client")
 	}
 }
+
+// TestDispatchNamespace_Get_UnconvertibleArgs checks that a value with no JS
+// representation in args or the outbound options is returned as an error
+// instead of panicking in the generated toJS, which runs before jsrt.Call.
+func TestDispatchNamespace_Get_UnconvertibleArgs(t *testing.T) {
+	called := false
+	fake := js.ValueOf(map[string]any{})
+	fake.Set("get", js.FuncOf(func(this js.Value, args []js.Value) any {
+		called = true
+		return js.Null()
+	}))
+	ns := DispatchNamespaceFromJS(fake)
+	bad := map[string]any{"bad": make(chan int)}
+
+	for name, call := range map[string]func() error{
+		"args": func() error {
+			_, err := ns.Get("w", bad, DynamicDispatchOptions{})
+			return err
+		},
+		"outbound": func() error {
+			_, err := ns.Get("w", nil, DynamicDispatchOptions{Outbound: bad})
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			defer func() {
+				if r := recover(); r != nil {
+					t.Fatalf("Get panicked: %v", r)
+				}
+			}()
+			if err := call(); err == nil {
+				t.Fatal("Get succeeded, want an error")
+			}
+		})
+	}
+	if called {
+		t.Error("the JS get was called despite the conversion error")
+	}
+}

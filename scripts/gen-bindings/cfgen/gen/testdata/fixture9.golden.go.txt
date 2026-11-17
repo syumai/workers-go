@@ -36,7 +36,7 @@ func baseFromJS(v js.Value) (Base, error) {
 	return out, nil
 }
 
-func (o Base) toJS() js.Value {
+func (o Base) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.A != "" {
 		obj.Set("a", o.A)
@@ -47,7 +47,7 @@ func (o Base) toJS() js.Value {
 	if o.C {
 		obj.Set("c", o.C)
 	}
-	return obj
+	return obj, nil
 }
 
 // Derived Derived exercises tmp/06-codegen-spec.md 5.1's Pick/Omit/Partial-aware intersection flattening: Pick<Partial<Base>, "a"> contributes an optional a, Omit<Base, "a" | "b"> contributes c (a and b dropped), and the object literal contributes d.
@@ -73,7 +73,7 @@ func derivedFromJS(v js.Value) (Derived, error) {
 	return out, nil
 }
 
-func (o Derived) toJS() js.Value {
+func (o Derived) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.A != "" {
 		obj.Set("a", o.A)
@@ -84,5 +84,5 @@ func (o Derived) toJS() js.Value {
 	if o.D != "" {
 		obj.Set("d", o.D)
 	}
-	return obj
+	return obj, nil
 }

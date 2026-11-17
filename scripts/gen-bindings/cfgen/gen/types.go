@@ -78,6 +78,15 @@ type exprConv struct {
 	// js.Value.Set/SetIndex accept any type js.ValueOf supports).
 	ToJS func(src string) (pre []string, expr string)
 
+	// ToJSFail, when set, replaces ToJS for a conversion whose Go -> JS step
+	// can fail: a nested data type's toJS (which returns an error) or a
+	// map[string]any holding a value with no JS representation. Its
+	// statements propagate the failure with "return failReturn, err", where
+	// failReturn is a comma-separated Go expression list for the enclosing
+	// function's other results (empty when it returns only an error). Use
+	// toJSStmts to call whichever of the two is set.
+	ToJSFail func(src, failReturn string) (pre []string, expr string)
+
 	// ToJSErr, when set, is used instead of ToJS for a method parameter.
 	// It returns a call expression of type (js.Value, error). The method
 	// generator assigns that result and returns the error to the caller.
@@ -122,6 +131,27 @@ type exprConv struct {
 	// struct Go conversion, which requires both structs' fields to match
 	// exactly).
 	IsDataStruct bool
+}
+
+// isFallibleToJS reports whether c's Go -> JS conversion can fail.
+func (c exprConv) isFallibleToJS() bool { return c.ToJSFail != nil }
+
+// toJSStmts returns c's ToJS statements and result expression, using
+// ToJSFail (and failReturn) when c is fallible.
+func (c exprConv) toJSStmts(src, failReturn string) ([]string, string) {
+	if c.ToJSFail != nil {
+		return c.ToJSFail(src, failReturn)
+	}
+	return c.ToJS(src)
+}
+
+// returnErr is the Go statement that propagates err from a function whose
+// non-error results are failReturn (empty if it returns only an error).
+func returnErr(failReturn string) string {
+	if failReturn == "" {
+		return "return err"
+	}
+	return "return " + failReturn + ", err"
 }
 
 func scalarConv(goType, fromJS, zero string) exprConv {
@@ -695,20 +725,36 @@ func arrayOfConv(elem exprConv, depth int) exprConv {
 			return lines
 		},
 		ToJS: func(src string) ([]string, string) {
-			pre, elemExpr := elem.ToJS(elemVar)
-			var lines []string
-			lines = append(lines, arrVar+" := js.Global().Get(\"Array\").New(len("+src+"))")
-			lines = append(lines, "for "+idxVar+", "+elemVar+" := range "+src+" {")
-			if len(pre) > 0 {
-				lines = append(lines, indentAll(pre)...)
-			}
-			lines = append(lines, "\t"+arrVar+".SetIndex("+idxVar+", "+elemExpr+")")
-			lines = append(lines, "}")
-			return lines, arrVar
+			return arrayToJS(elem, src, "", elemVar, idxVar, arrVar)
 		},
+		ToJSFail: failIf(elem.isFallibleToJS(), func(src, failReturn string) ([]string, string) {
+			return arrayToJS(elem, src, failReturn, elemVar, idxVar, arrVar)
+		}),
 		ZeroExpr:   "nil",
 		OmitIfZero: func(expr string) string { return "len(" + expr + ") > 0" },
 	}
+}
+
+// failIf returns f when cond is true, else nil, so a container conversion is
+// only marked fallible when its element conversion is.
+func failIf(cond bool, f func(src, failReturn string) ([]string, string)) func(src, failReturn string) ([]string, string) {
+	if !cond {
+		return nil
+	}
+	return f
+}
+
+func arrayToJS(elem exprConv, src, failReturn, elemVar, idxVar, arrVar string) ([]string, string) {
+	pre, elemExpr := elem.toJSStmts(elemVar, failReturn)
+	var lines []string
+	lines = append(lines, arrVar+" := js.Global().Get(\"Array\").New(len("+src+"))")
+	lines = append(lines, "for "+idxVar+", "+elemVar+" := range "+src+" {")
+	if len(pre) > 0 {
+		lines = append(lines, indentAll(pre)...)
+	}
+	lines = append(lines, "\t"+arrVar+".SetIndex("+idxVar+", "+elemExpr+")")
+	lines = append(lines, "}")
+	return lines, arrVar
 }
 
 // recordConv builds a plain-JS-object <-> Go map conversion for
@@ -743,19 +789,26 @@ func (p *Package) recordConv(val *ir.Type) (exprConv, error) {
 			return lines
 		},
 		ToJS: func(src string) ([]string, string) {
-			pre, valExpr := vc.ToJS(rangeValVar)
-			lines := []string{
-				mapVar + " := jsrt.NewObject()",
-				"for " + keyVar + ", " + rangeValVar + " := range " + src + " {",
-			}
-			lines = append(lines, indentAll(pre)...)
-			lines = append(lines, "\t"+mapVar+".Set("+keyVar+", "+valExpr+")")
-			lines = append(lines, "}")
-			return lines, mapVar
+			return recordToJS(vc, src, "", mapVar, keyVar, rangeValVar)
 		},
+		ToJSFail: failIf(vc.isFallibleToJS(), func(src, failReturn string) ([]string, string) {
+			return recordToJS(vc, src, failReturn, mapVar, keyVar, rangeValVar)
+		}),
 		ZeroExpr:   "nil",
 		OmitIfZero: func(expr string) string { return "len(" + expr + ") > 0" },
 	}, nil
+}
+
+func recordToJS(vc exprConv, src, failReturn, mapVar, keyVar, rangeValVar string) ([]string, string) {
+	pre, valExpr := vc.toJSStmts(rangeValVar, failReturn)
+	lines := []string{
+		mapVar + " := jsrt.NewObject()",
+		"for " + keyVar + ", " + rangeValVar + " := range " + src + " {",
+	}
+	lines = append(lines, indentAll(pre)...)
+	lines = append(lines, "\t"+mapVar+".Set("+keyVar+", "+valExpr+")")
+	lines = append(lines, "}")
+	return lines, mapVar
 }
 
 // mapConv builds a JS Map<string, V> <-> Go map[string]V conversion, per
@@ -809,19 +862,26 @@ func (p *Package) mapConv(val *ir.Type) (exprConv, error) {
 			return lines
 		},
 		ToJS: func(src string) ([]string, string) {
-			pre, valExpr := vc.ToJS(rangeValVar)
-			lines := []string{
-				mapVar + " := js.Global().Get(\"Map\").New()",
-				"for " + keyVar + ", " + rangeValVar + " := range " + src + " {",
-			}
-			lines = append(lines, indentAll(pre)...)
-			lines = append(lines, "\t"+mapVar+".Call(\"set\", "+keyVar+", "+valExpr+")")
-			lines = append(lines, "}")
-			return lines, mapVar
+			return jsMapToJS(vc, src, "", mapVar, keyVar, rangeValVar)
 		},
+		ToJSFail: failIf(vc.isFallibleToJS(), func(src, failReturn string) ([]string, string) {
+			return jsMapToJS(vc, src, failReturn, mapVar, keyVar, rangeValVar)
+		}),
 		ZeroExpr:   "nil",
 		OmitIfZero: func(expr string) string { return "len(" + expr + ") > 0" },
 	}, nil
+}
+
+func jsMapToJS(vc exprConv, src, failReturn, mapVar, keyVar, rangeValVar string) ([]string, string) {
+	pre, valExpr := vc.toJSStmts(rangeValVar, failReturn)
+	lines := []string{
+		mapVar + " := js.Global().Get(\"Map\").New()",
+		"for " + keyVar + ", " + rangeValVar + " := range " + src + " {",
+	}
+	lines = append(lines, indentAll(pre)...)
+	lines = append(lines, "\t"+mapVar+".Call(\"set\", "+keyVar+", "+valExpr+")")
+	lines = append(lines, "}")
+	return lines, mapVar
 }
 
 func bytesConv() exprConv {
@@ -1054,7 +1114,18 @@ func (p *Package) declRefConv(d *ir.Decl) (exprConv, error) {
 					"}",
 				}
 			},
-			ToJS:         func(src string) ([]string, string) { return nil, src + ".toJS()" },
+			ToJS: func(src string) ([]string, string) { return nil, src + ".toJS()" },
+			ToJSFail: func(src, failReturn string) ([]string, string) {
+				// Each nested toJS gets its own block-scoped variable so
+				// sibling and nested conversions never collide.
+				v := "js" + name
+				return []string{
+					v + ", err := " + src + ".toJS()",
+					"if err != nil {",
+					"\t" + returnErr(failReturn),
+					"}",
+				}, v
+			},
 			ZeroExpr:     name + "{}",
 			OmitIfZero:   func(string) string { return "true" },
 			IsDataStruct: true,
@@ -1180,6 +1251,9 @@ func pointerWrap(inner exprConv) exprConv {
 			// try to dereference the js.Value result instead).
 			return inner.ToJS("(*" + src + ")")
 		},
+		ToJSFail: failIf(inner.isFallibleToJS(), func(src, failReturn string) ([]string, string) {
+			return inner.ToJSFail("(*"+src+")", failReturn)
+		}),
 		ZeroExpr:    "nil",
 		OmitIfZero:  func(expr string) string { return expr + " != nil" },
 		SelfGuarded: true,
@@ -1474,10 +1548,17 @@ func (p *Package) namedTypeConv(override string) (exprConv, error) {
 				}
 			},
 			ToJS: func(src string) ([]string, string) {
+				panic("types override map[string]any must be converted with ToJSFail")
+			},
+			ToJSFail: func(src, failReturn string) ([]string, string) {
 				return []string{
 					"m := jsrt.NewObject()",
 					"for k, v := range " + src + " {",
-					"\tm.Set(k, v)",
+					"\tjv, err := jsrt.AnyToJS(v)",
+					"\tif err != nil {",
+					"\t\t" + returnErr(failReturn),
+					"\t}",
+					"\tm.Set(k, jv)",
 					"}",
 				}, "m"
 			},

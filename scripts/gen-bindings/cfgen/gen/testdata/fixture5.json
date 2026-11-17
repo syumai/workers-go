@@ -59,6 +59,21 @@
         },
         {
           "kind": "method",
+          "name": "bind",
+          "doc": "a rest parameter that is the method's only argument and whose element type is unknown (D1PreparedStatement.bind's shape); each element is converted by jsrt.AnyArgs (a []byte becomes a Uint8Array; a value with no JS form is returned as an error)",
+          "params": [
+            {
+              "name": "values",
+              "type": { "k": "array", "elem": { "k": "prim", "name": "unknown" } },
+              "optional": false,
+              "rest": true
+            }
+          ],
+          "returns": { "k": "prim", "name": "void" },
+          "typeParams": []
+        },
+        {
+          "kind": "method",
           "name": "tag",
           "doc": "a rest parameter whose element type resolves to a concrete Go type (string) is converted element by element into a []any before the call",
           "params": [

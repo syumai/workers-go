@@ -4,6 +4,8 @@ package durableobjects
 
 import (
 	"encoding/json"
+	"fmt"
+	"reflect"
 	"syscall/js"
 	"time"
 
@@ -83,6 +85,43 @@ func (s *DurableObjectStorage) Alarm() (time.Time, bool, error) {
 		return time.Time{}, false, nil
 	}
 	return time.UnixMilli(int64(*ms)), true, nil
+}
+
+// Exec runs query with bindings bound to its ? placeholders and returns a
+// cursor over the result.
+//
+// A binding must be a value SQLite can store: nil (NULL), a bool, a number, a
+// string, a []byte (BLOB), a time.Time (a Date), or a js.Value passed through
+// untouched. A slice, array or map (other than []byte) has no SQL
+// representation, and workerd would silently stringify it ("1,x",
+// "[object Object]") rather than fail, so Exec rejects it with an error
+// before calling exec. Choosing an encoding, such as JSON, is the caller's
+// decision, since Exec cannot know a column is meant to hold JSON.
+//
+// This wraps the generated exec so that rule lives here rather than in the
+// generator, which cannot tell that a ...any parameter means SQL bindings.
+func (x *SQLStorage) Exec(query string, bindings ...any) (*SQLStorageCursor, error) {
+	for i, b := range bindings {
+		if err := checkSQLBinding(b); err != nil {
+			return nil, fmt.Errorf("durableobjects: sql: binding %d: %w", i, err)
+		}
+	}
+	return x.exec(query, bindings...)
+}
+
+// checkSQLBinding reports an error for a binding of a kind with no SQL
+// representation. Values with no JS form at all (a chan, a func) are left for
+// the generated conversion to reject.
+func checkSQLBinding(b any) error {
+	switch b.(type) {
+	case nil, []byte, js.Value:
+		return nil
+	}
+	switch reflect.ValueOf(b).Kind() {
+	case reflect.Slice, reflect.Array, reflect.Map:
+		return fmt.Errorf("%T has no SQL representation (encode it explicitly, e.g. as JSON)", b)
+	}
+	return nil
 }
 
 // Rows decodes the cursor's remaining rows (via ToArray) into a slice of

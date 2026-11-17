@@ -31,7 +31,16 @@ func (x *Cache) JSValue() js.Value { return x.v }
 
 // Delete
 func (x *Cache) Delete(request js.Value, options CacheQueryOptions) (bool, error) {
-	p, err := jsrt.Call(x.v, "delete", request, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsCacheQueryOptions, err := options.toJS()
+		if err != nil {
+			return false, err
+		}
+		arg1 = jsCacheQueryOptions
+	}
+	p, err := jsrt.Call(x.v, "delete", request, arg1)
 	if err != nil {
 		return false, err
 	}
@@ -46,7 +55,16 @@ func (x *Cache) Delete(request js.Value, options CacheQueryOptions) (bool, error
 
 // Match
 func (x *Cache) Match(request js.Value, options CacheQueryOptions) (js.Value, error) {
-	p, err := jsrt.Call(x.v, "match", request, options.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsCacheQueryOptions, err := options.toJS()
+		if err != nil {
+			return js.Undefined(), err
+		}
+		arg1 = jsCacheQueryOptions
+	}
+	p, err := jsrt.Call(x.v, "match", request, arg1)
 	if err != nil {
 		return js.Undefined(), err
 	}
@@ -119,10 +137,10 @@ func cacheQueryOptionsFromJS(v js.Value) (CacheQueryOptions, error) {
 	return out, nil
 }
 
-func (o CacheQueryOptions) toJS() js.Value {
+func (o CacheQueryOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.IgnoreMethod {
 		obj.Set("ignoreMethod", o.IgnoreMethod)
 	}
-	return obj
+	return obj, nil
 }

@@ -62,6 +62,7 @@ func main() {
 	mux.HandleFunc("/r2/", handleR2Item)
 	mux.HandleFunc("/d1/exec", handleD1Exec)
 	mux.HandleFunc("/d1/query", handleD1Query)
+	mux.HandleFunc("/d1/batch", handleD1Batch)
 	mux.HandleFunc("/queue/send", handleQueueSend)
 	mux.HandleFunc("/queue/send-batch", handleQueueSendBatch)
 	mux.HandleFunc("/queue/received", handleQueueReceived)

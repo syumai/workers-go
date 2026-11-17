@@ -29,7 +29,10 @@ import (
 func (a *Ai) Run(model string, inputs js.Value, opts *AiOptions) (js.Value, error) {
 	options := js.Value{}
 	if opts != nil {
-		options = opts.toJS()
+		var err error
+		if options, err = opts.toJS(); err != nil {
+			return js.Value{}, fmt.Errorf("ai: encoding options: %w", err)
+		}
 	}
 	p, err := jsrt.Call(a.v, "run", model, inputs, options)
 	if err != nil {
@@ -55,7 +58,11 @@ func (a *Ai) RunStream(model string, inputs js.Value, opts *AiOptions) (io.ReadC
 // family and similar), encoding in via AiTextGenerationInput.toJS and
 // decoding the response via aiTextGenerationOutputFromJS.
 func (a *Ai) RunTextGeneration(model string, in AiTextGenerationInput, opts *AiOptions) (AiTextGenerationOutput, error) {
-	v, err := a.Run(model, in.toJS(), opts)
+	jsIn, err := in.toJS()
+	if err != nil {
+		return AiTextGenerationOutput{}, fmt.Errorf("ai: encoding AiTextGenerationInput: %w", err)
+	}
+	v, err := a.Run(model, jsIn, opts)
 	if err != nil {
 		return AiTextGenerationOutput{}, err
 	}
@@ -71,14 +78,22 @@ func (a *Ai) RunTextGeneration(model string, in AiTextGenerationInput, opts *AiO
 // decoded AiTextGenerationOutput; see RunStream.
 func (a *Ai) RunTextGenerationStream(model string, in AiTextGenerationInput, opts *AiOptions) (io.ReadCloser, error) {
 	in.Stream = true
-	return a.RunStream(model, in.toJS(), opts)
+	jsIn, err := in.toJS()
+	if err != nil {
+		return nil, fmt.Errorf("ai: encoding AiTextGenerationInput: %w", err)
+	}
+	return a.RunStream(model, jsIn, opts)
 }
 
 // RunTextEmbeddings runs a text-embeddings model (the @cf/baai/bge-* family
 // and similar), encoding in via AiTextEmbeddingsInput.toJS and decoding the
 // response via aiTextEmbeddingsOutputFromJS.
 func (a *Ai) RunTextEmbeddings(model string, in AiTextEmbeddingsInput, opts *AiOptions) (AiTextEmbeddingsOutput, error) {
-	v, err := a.Run(model, in.toJS(), opts)
+	jsIn, err := in.toJS()
+	if err != nil {
+		return AiTextEmbeddingsOutput{}, fmt.Errorf("ai: encoding AiTextEmbeddingsInput: %w", err)
+	}
+	v, err := a.Run(model, jsIn, opts)
 	if err != nil {
 		return AiTextEmbeddingsOutput{}, err
 	}

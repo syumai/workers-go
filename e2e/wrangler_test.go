@@ -57,6 +57,11 @@ type wranglerOptions struct {
 	// configName is the file under testdata/workers/<fixture>/. Empty
 	// means wrangler.jsonc.
 	configName string
+	// extraConfigNames are further files under testdata/workers/<fixture>/
+	// passed as additional --config flags. wrangler dev runs them in the
+	// same workerd, so the first config's service bindings can target
+	// Workers defined by these (the first config stays the HTTP entry).
+	extraConfigNames []string
 	// skipOnRemoteAuth skips the test when wrangler exits during startup
 	// because a binding proxies to Cloudflare and no account is configured.
 	// The Workers AI binding does this: it has no local simulator, so
@@ -100,13 +105,18 @@ func startWranglerWith(t *testing.T, fixture string, opts wranglerOptions) *work
 	args := []string{
 		"exec", "wrangler", "dev",
 		"--config", configPath,
+	}
+	for _, extra := range opts.extraConfigNames {
+		args = append(args, "--config", filepath.Join(e2eDir, "testdata", "workers", fixture, extra))
+	}
+	args = append(args,
 		"--port", strconv.Itoa(httpPort),
 		"--inspector-port", strconv.Itoa(inspectorPort),
 		"--persist-to", persistDir,
 		"--test-scheduled",
 		"--show-interactive-dev-session=false",
 		"--log-level", "info",
-	}
+	)
 
 	return runWrangler(t, "pnpm", e2eDir, args, httpPort, "/healthz", opts.skipOnRemoteAuth)
 }

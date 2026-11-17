@@ -29,12 +29,12 @@ func knownMetaFromJS(v js.Value) (KnownMeta, error) {
 	return out, nil
 }
 
-func (o KnownMeta) toJS() js.Value {
+func (o KnownMeta) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Kind != "" {
 		obj.Set("kind", o.Kind)
 	}
-	return obj
+	return obj, nil
 }
 
 // Config Config exercises tmp/06-codegen-spec.md 5.1 items 1 and 2: an inline object field, an inline object-literal union field, a ref union resolved via the single-included-ref rule, a numeric literal union, a boolean/literal mix, and a string/literal mix.
@@ -83,16 +83,28 @@ func configFromJS(v js.Value) (Config, error) {
 	return out, nil
 }
 
-func (o Config) toJS() js.Value {
+func (o Config) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if true {
-		obj.Set("retention", o.Retention.toJS())
+		jsConfigRetention, err := o.Retention.toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("retention", jsConfigRetention)
 	}
 	if true {
-		obj.Set("range", o.Range.toJS())
+		jsConfigRange, err := o.Range.toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("range", jsConfigRange)
 	}
 	if true {
-		obj.Set("meta", o.Meta.toJS())
+		jsKnownMeta, err := o.Meta.toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("meta", jsKnownMeta)
 	}
 	if o.Level != 0 {
 		obj.Set("level", o.Level)
@@ -103,7 +115,7 @@ func (o Config) toJS() js.Value {
 	if o.Label != "" {
 		obj.Set("label", o.Label)
 	}
-	return obj
+	return obj, nil
 }
 
 // Catalog Catalog exercises inline object type literals at getter and method param/return positions.
@@ -135,7 +147,16 @@ func (x *Catalog) Info() CatalogInfo {
 
 // Search
 func (x *Catalog) Search(query string, filter CatalogSearchFilter) (CatalogSearch, error) {
-	p, err := jsrt.Call(x.v, "search", query, filter.toJS())
+	var err error
+	var arg1 js.Value
+	{
+		jsCatalogSearchFilter, err := filter.toJS()
+		if err != nil {
+			return CatalogSearch{}, err
+		}
+		arg1 = jsCatalogSearchFilter
+	}
+	p, err := jsrt.Call(x.v, "search", query, arg1)
 	if err != nil {
 		return CatalogSearch{}, err
 	}
@@ -169,7 +190,7 @@ func configRetentionFromJS(v js.Value) (ConfigRetention, error) {
 	return out, nil
 }
 
-func (o ConfigRetention) toJS() js.Value {
+func (o ConfigRetention) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Days != 0 {
 		obj.Set("days", o.Days)
@@ -177,7 +198,7 @@ func (o ConfigRetention) toJS() js.Value {
 	if o.Mode != "" {
 		obj.Set("mode", o.Mode)
 	}
-	return obj
+	return obj, nil
 }
 
 // ConfigRange
@@ -199,7 +220,7 @@ func configRangeFromJS(v js.Value) (ConfigRange, error) {
 	return out, nil
 }
 
-func (o ConfigRange) toJS() js.Value {
+func (o ConfigRange) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Start != 0 {
 		obj.Set("start", o.Start)
@@ -207,7 +228,7 @@ func (o ConfigRange) toJS() js.Value {
 	if o.End != 0 {
 		obj.Set("end", o.End)
 	}
-	return obj
+	return obj, nil
 }
 
 // CatalogInfo
@@ -223,12 +244,12 @@ func catalogInfoFromJS(v js.Value) (CatalogInfo, error) {
 	return out, nil
 }
 
-func (o CatalogInfo) toJS() js.Value {
+func (o CatalogInfo) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Name != "" {
 		obj.Set("name", o.Name)
 	}
-	return obj
+	return obj, nil
 }
 
 // CatalogSearchFilter
@@ -244,12 +265,12 @@ func catalogSearchFilterFromJS(v js.Value) (CatalogSearchFilter, error) {
 	return out, nil
 }
 
-func (o CatalogSearchFilter) toJS() js.Value {
+func (o CatalogSearchFilter) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Tag != "" {
 		obj.Set("tag", o.Tag)
 	}
-	return obj
+	return obj, nil
 }
 
 // CatalogSearch
@@ -269,7 +290,7 @@ func catalogSearchFromJS(v js.Value) (CatalogSearch, error) {
 	return out, nil
 }
 
-func (o CatalogSearch) toJS() js.Value {
+func (o CatalogSearch) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ID != "" {
 		obj.Set("id", o.ID)
@@ -277,5 +298,5 @@ func (o CatalogSearch) toJS() js.Value {
 	if o.Count != 0 {
 		obj.Set("count", o.Count)
 	}
-	return obj
+	return obj, nil
 }

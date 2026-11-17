@@ -42,7 +42,7 @@ func workerVersionMetadataFromJS(v js.Value) (WorkerVersionMetadata, error) {
 	return out, nil
 }
 
-func (o WorkerVersionMetadata) toJS() js.Value {
+func (o WorkerVersionMetadata) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.ID != "" {
 		obj.Set("id", o.ID)
@@ -53,7 +53,7 @@ func (o WorkerVersionMetadata) toJS() js.Value {
 	if o.Timestamp != "" {
 		obj.Set("timestamp", o.Timestamp)
 	}
-	return obj
+	return obj, nil
 }
 
 // NewWorkerVersionMetadata resolves the binding named bindingName from env.

@@ -51,15 +51,28 @@ func NewDispatchNamespace(bindingName string) (*DispatchNamespace, error) {
 // @returns A Fetcher object that allows you to send requests to the Worker script.
 // @throws If the Worker script does not exist in this dispatch namespace, an error will be thrown.
 func (x *DispatchNamespace) Get(name string, args map[string]any, options DynamicDispatchOptions) (js.Value, error) {
+	var err error
 	var arg1 js.Value
 	{
 		m := jsrt.NewObject()
 		for k, v := range args {
-			m.Set(k, v)
+			jv, err := jsrt.AnyToJS(v)
+			if err != nil {
+				return js.Undefined(), err
+			}
+			m.Set(k, jv)
 		}
 		arg1 = m
 	}
-	r, err := jsrt.Call(x.v, "get", name, arg1, options.toJS())
+	var arg2 js.Value
+	{
+		jsDynamicDispatchOptions, err := options.toJS()
+		if err != nil {
+			return js.Undefined(), err
+		}
+		arg2 = jsDynamicDispatchOptions
+	}
+	r, err := jsrt.Call(x.v, "get", name, arg1, arg2)
 	if err != nil {
 		return js.Undefined(), err
 	}
@@ -102,19 +115,27 @@ func dynamicDispatchOptionsFromJS(v js.Value) (DynamicDispatchOptions, error) {
 	return out, nil
 }
 
-func (o DynamicDispatchOptions) toJS() js.Value {
+func (o DynamicDispatchOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Limits != nil {
-		obj.Set("limits", (*o.Limits).toJS())
+		jsDynamicDispatchLimits, err := (*o.Limits).toJS()
+		if err != nil {
+			return js.Value{}, err
+		}
+		obj.Set("limits", jsDynamicDispatchLimits)
 	}
 	if len(o.Outbound) > 0 {
 		m := jsrt.NewObject()
 		for k, v := range o.Outbound {
-			m.Set(k, v)
+			jv, err := jsrt.AnyToJS(v)
+			if err != nil {
+				return js.Value{}, err
+			}
+			m.Set(k, jv)
 		}
 		obj.Set("outbound", m)
 	}
-	return obj
+	return obj, nil
 }
 
 // DynamicDispatchLimits
@@ -140,7 +161,7 @@ func dynamicDispatchLimitsFromJS(v js.Value) (DynamicDispatchLimits, error) {
 	return out, nil
 }
 
-func (o DynamicDispatchLimits) toJS() js.Value {
+func (o DynamicDispatchLimits) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.CpuMs != 0 {
 		obj.Set("cpuMs", o.CpuMs)
@@ -148,5 +169,5 @@ func (o DynamicDispatchLimits) toJS() js.Value {
 	if o.SubRequests != 0 {
 		obj.Set("subRequests", o.SubRequests)
 	}
-	return obj
+	return obj, nil
 }

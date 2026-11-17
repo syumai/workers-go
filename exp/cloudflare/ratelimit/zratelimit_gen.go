@@ -37,7 +37,16 @@ func NewRateLimit(bindingName string) (*RateLimit, error) {
 // @see https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/
 // @returns A promise that resolves with the outcome of the rate limit.
 func (x *RateLimit) Limit(options RateLimitOptions) (RateLimitOutcome, error) {
-	p, err := jsrt.Call(x.v, "limit", options.toJS())
+	var err error
+	var arg0 js.Value
+	{
+		jsRateLimitOptions, err := options.toJS()
+		if err != nil {
+			return RateLimitOutcome{}, err
+		}
+		arg0 = jsRateLimitOptions
+	}
+	p, err := jsrt.Call(x.v, "limit", arg0)
 	if err != nil {
 		return RateLimitOutcome{}, err
 	}
@@ -67,12 +76,12 @@ func rateLimitOptionsFromJS(v js.Value) (RateLimitOptions, error) {
 	return out, nil
 }
 
-func (o RateLimitOptions) toJS() js.Value {
+func (o RateLimitOptions) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Key != "" {
 		obj.Set("key", o.Key)
 	}
-	return obj
+	return obj, nil
 }
 
 // RateLimitOutcome
@@ -88,10 +97,10 @@ func rateLimitOutcomeFromJS(v js.Value) (RateLimitOutcome, error) {
 	return out, nil
 }
 
-func (o RateLimitOutcome) toJS() js.Value {
+func (o RateLimitOutcome) toJS() (js.Value, error) {
 	obj := jsrt.NewObject()
 	if o.Success {
 		obj.Set("success", o.Success)
 	}
-	return obj
+	return obj, nil
 }
