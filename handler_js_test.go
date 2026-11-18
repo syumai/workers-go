@@ -368,3 +368,26 @@ func TestHandleRequest_panicInHandler(t *testing.T) {
 		t.Errorf("status = %d, want %d", got, http.StatusInternalServerError)
 	}
 }
+
+// TestHandleRequest_malformedURL verifies that a request with a malformed
+// percent-escape in its path (which workerd forwards verbatim, but Go's
+// url.Parse rejects) resolves with 400 Bad Request, like Go's net/http
+// server, rather than rejecting the handleRequest promise (a 500 from the
+// runtime) before the registered handler gets a chance to run.
+func TestHandleRequest_malformedURL(t *testing.T) {
+	called := false
+	ServeNonBlock(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+	}))
+
+	reqObj := jstest.Request(t, "GET", "http://example.com/healthz%zz", nil, nil)
+	p := jstest.Binding(t, "handleRequest").Invoke(reqObj)
+	res := jstest.Await(t, p)
+
+	if got := res.Get("status").Int(); got != http.StatusBadRequest {
+		t.Errorf("status = %d, want %d", got, http.StatusBadRequest)
+	}
+	if called {
+		t.Error("handler was called for a request with an unparseable URL")
+	}
+}
