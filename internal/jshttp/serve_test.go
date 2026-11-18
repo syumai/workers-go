@@ -101,3 +101,33 @@ func TestServeRequest_HandlerPanicAfterWrite(t *testing.T) {
 		t.Logf("resp.text() rejected as expected for an aborted stream: %v", err)
 	}
 }
+
+// TestServeRequest_MalformedURL verifies that a request whose URL Go's
+// net/url cannot parse (workerd passes request.url through without
+// validating percent-escapes) is answered with 400 Bad Request, as Go's
+// net/http server does for the same request-target, instead of returning
+// an error that rejects the handler's Promise and surfaces as a 500. The
+// http.Handler must not run for such a request.
+func TestServeRequest_MalformedURL(t *testing.T) {
+	for _, url := range []string{
+		"http://test.invalid/healthz%zz",
+		"http://test.invalid/%",
+	} {
+		t.Run(url, func(t *testing.T) {
+			called := false
+			h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				called = true
+			})
+			respObj, err := ServeRequest(h, fakeGetRequest(t, url), nil)
+			if err != nil {
+				t.Fatalf("ServeRequest returned an error: %v", err)
+			}
+			if got, want := respObj.Get("status").Int(), http.StatusBadRequest; got != want {
+				t.Errorf("status = %d, want %d", got, want)
+			}
+			if called {
+				t.Error("handler was called for a request with an unparseable URL")
+			}
+		})
+	}
+}

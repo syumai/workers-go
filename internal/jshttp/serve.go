@@ -49,10 +49,21 @@ func (c *bodyCloser) Close() error {
 func ServeRequest(handler http.Handler, reqObj js.Value, onBodyClosed func()) (js.Value, error) {
 	req, err := ToRequest(reqObj)
 	if err != nil {
-		return js.Value{}, err
+		// The JS runtime does not validate percent-escapes in request.url,
+		// but Go's url.Parse does (e.g. "/healthz%zz"). Go's own net/http
+		// server answers a request whose target fails to parse with a bare
+		// "400 Bad Request", without calling the handler; do the same
+		// instead of rejecting the Promise, which the runtime reports as
+		// an uncaught exception and a 500. The response goes through the
+		// same ResponseWriter path as any other, with http.Error as the
+		// "handler".
+		log.Printf("jshttp: rejecting request with unparseable URL: %v", err)
+		handler = badRequestHandler
+		req = &http.Request{}
+	} else {
+		ctx := runtimecontext.New(context.Background(), reqObj)
+		req = req.WithContext(ctx)
 	}
-	ctx := runtimecontext.New(context.Background(), reqObj)
-	req = req.WithContext(ctx)
 
 	reader, writer := io.Pipe()
 	w := &ResponseWriter{
@@ -111,3 +122,9 @@ func ServeRequest(handler http.Handler, reqObj js.Value, onBodyClosed func()) (j
 	<-w.ReadyCh
 	return w.ToJSResponse(), nil
 }
+
+// badRequestHandler answers 400 Bad Request without consulting the request,
+// like net/http's server does for a request it cannot parse.
+var badRequestHandler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+})
