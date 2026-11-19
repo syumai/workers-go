@@ -1,6 +1,7 @@
 package jshttp
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strconv"
@@ -27,6 +28,14 @@ func toResponse(res js.Value, body io.ReadCloser) (*http.Response, error) {
 //   - Response: https://developer.mozilla.org/docs/Web/API/Response
 func ToResponse(res js.Value) (*http.Response, error) {
 	body := jsutil.ConvertReadableStreamToReadCloser(res.Get("body"))
+	return toResponse(res, body)
+}
+
+// ToResponseContext is like ToResponse, but the response body's Read returns
+// ctx.Err() (and cancels the stream) once ctx is done. onClose, if non-nil,
+// is called once when the body is closed.
+func ToResponseContext(ctx context.Context, res js.Value, onClose func()) (*http.Response, error) {
+	body := jsutil.ConvertReadableStreamToReadCloserContext(ctx, res.Get("body"), onClose)
 	return toResponse(res, body)
 }
 

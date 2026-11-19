@@ -68,6 +68,7 @@ func main() {
 	mux.HandleFunc("/queue/meta", handleQueueMeta)
 	mux.HandleFunc("/waituntil", handleWaitUntil)
 	mux.HandleFunc("/waituntil/result", handleWaitUntilResult)
+	mux.HandleFunc("/fetch/cancel", handleFetchCancel)
 	mux.HandleFunc("/issue101/empty", handleIssue101Empty)
 	mux.HandleFunc("/issue101/nobody", handleIssue101Nobody)
 	mux.HandleFunc("/issue163", handleIssue163)

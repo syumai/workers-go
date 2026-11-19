@@ -30,6 +30,10 @@ func (mode RedirectMode) String() string {
 type RequestInit struct {
 	CF       *RequestInitCF
 	Redirect RedirectMode
+
+	// signal is an AbortSignal passed through to fetch(). It is set by
+	// fetch() from the request's context, not by callers.
+	signal js.Value
 }
 
 // ToJS converts RequestInit to JS object.
@@ -40,6 +44,9 @@ func (init *RequestInit) ToJS() js.Value {
 	obj := jsutil.NewObject()
 	if init.Redirect.IsValid() {
 		obj.Set("redirect", init.Redirect.String())
+	}
+	if init.signal.Type() == js.TypeObject {
+		obj.Set("signal", init.signal)
 	}
 	return obj
 }

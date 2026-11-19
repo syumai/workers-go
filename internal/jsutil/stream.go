@@ -2,6 +2,7 @@ package jsutil
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"syscall/js"
@@ -22,6 +23,12 @@ type readableStreamToReadCloser struct {
 	buf          bytes.Buffer
 	stream       js.Value
 	streamReader *js.Value
+	// ctx, when non-nil, bounds Read: once it is done, a pending or future
+	// Read returns ctx.Err() and the stream is canceled.
+	ctx context.Context
+	// onClose, when non-nil, runs once from Close (e.g. to release an
+	// AbortController's context watcher).
+	onClose func()
 }
 
 var (
@@ -42,8 +49,16 @@ func (sr *readableStreamToReadCloser) Read(p []byte) (n int, err error) {
 	// is what bytes.Buffer.Read would return if we fell through with an
 	// empty buffer.
 	for sr.buf.Len() == 0 {
-		resultCh := make(chan js.Value)
-		errCh := make(chan error)
+		if sr.ctx != nil {
+			if err := sr.ctx.Err(); err != nil {
+				sr.cancel()
+				return 0, err
+			}
+		}
+		// Buffered so the callbacks never block (leaking their js.Func)
+		// when Read returned early because ctx was done.
+		resultCh := make(chan js.Value, 1)
+		errCh := make(chan error, 1)
 		promise := sr.streamReader.Call("read")
 		var then, catch js.Func
 		then = js.FuncOf(func(_ js.Value, args []js.Value) any {
@@ -75,17 +90,71 @@ func (sr *readableStreamToReadCloser) Read(p []byte) (n int, err error) {
 			}
 		case err := <-errCh:
 			return 0, err
+		case <-sr.ctxDone():
+			sr.cancel()
+			return 0, sr.ctx.Err()
 		}
 	}
 	return sr.buf.Read(p)
 }
 
+// ctxDone returns ctx.Done(), or a nil channel (never ready) without a ctx.
+func (sr *readableStreamToReadCloser) ctxDone() <-chan struct{} {
+	if sr.ctx == nil {
+		return nil
+	}
+	return sr.ctx.Done()
+}
+
+// cancel cancels the underlying stream, swallowing the returned promise's
+// rejection so it does not surface as an unhandled rejection.
+func (sr *readableStreamToReadCloser) cancel() {
+	var target js.Value
+	if sr.streamReader != nil {
+		target = *sr.streamReader
+	} else {
+		// A locked stream cannot be canceled directly, and an unread
+		// stream has no reader yet.
+		target = sr.stream
+	}
+	ignoreRejection(target.Call("cancel"))
+}
+
 func (sr *readableStreamToReadCloser) Close() error {
+	if sr.onClose != nil {
+		sr.onClose()
+		sr.onClose = nil
+	}
 	if sr.streamReader == nil {
 		return nil
 	}
-	sr.streamReader.Call("cancel")
+	ignoreRejection(sr.streamReader.Call("cancel"))
 	return nil
+}
+
+// ignoreRejection attaches a no-op rejection handler to p.
+//
+// ReadableStream(DefaultReader).cancel() returns a Promise, and that Promise
+// can reject: for example when the stream is already errored (after a
+// fetch is aborted, the body stream errors with an AbortError), or when the
+// stream's own cancel callback throws. A rejection nobody handles is
+// reported by the runtime as an unhandled rejection, which workerd logs
+// (and may surface on the request) and which can terminate a Node process.
+//
+// It is safe to discard the error because cancel() is only called while
+// tearing a body down (Close, or the context being done). By then the caller
+// has already been given the error that matters (ctx.Err() or the earlier
+// read error), and a failed cancel changes nothing the Go side could act on.
+func ignoreRejection(p js.Value) {
+	if p.IsUndefined() || p.IsNull() {
+		return
+	}
+	var catch js.Func
+	catch = js.FuncOf(func(js.Value, []js.Value) any {
+		catch.Release()
+		return js.Undefined()
+	})
+	p.Call("catch", catch)
 }
 
 // readerWrapper is wrapper to disable readableStreamToReadCloser's WriteTo method.
@@ -109,6 +178,18 @@ func (sr *readableStreamToReadCloser) GetRawJSBody() js.Value {
 func ConvertReadableStreamToReadCloser(stream js.Value) io.ReadCloser {
 	return &readableStreamToReadCloser{
 		stream: stream,
+	}
+}
+
+// ConvertReadableStreamToReadCloserContext is like
+// ConvertReadableStreamToReadCloser, but Read stops blocking and returns
+// ctx.Err() once ctx is done, canceling the underlying stream. onClose, if
+// non-nil, is called once when the returned ReadCloser is closed.
+func ConvertReadableStreamToReadCloserContext(ctx context.Context, stream js.Value, onClose func()) io.ReadCloser {
+	return &readableStreamToReadCloser{
+		stream:  stream,
+		ctx:     ctx,
+		onClose: onClose,
 	}
 }
 
