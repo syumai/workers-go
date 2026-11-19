@@ -241,6 +241,7 @@ func TestKitchenSink(t *testing.T) {
 		}
 	})
 
+	t.Run("fetch/context_cancel_aborts", testFetchCancel(w))
 	t.Run("issue101/empty_handler", testIssue101Empty(w))
 	t.Run("issue101/status_and_headers_without_body", testIssue101Nobody(w))
 	t.Run("issue163/value_new_after_response", testIssue163CallbackAfterResponse(w))

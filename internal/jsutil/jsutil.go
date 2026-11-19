@@ -1,6 +1,7 @@
 package jsutil
 
 import (
+	"context"
 	"fmt"
 	"syscall/js"
 	"time"
@@ -20,6 +21,7 @@ var (
 	ErrorClass             = js.Global().Get("Error")
 	ReadableStreamClass    = js.Global().Get("ReadableStream")
 	DateClass              = js.Global().Get("Date")
+	AbortControllerClass   = js.Global().Get("AbortController")
 	Null                   = js.ValueOf(nil)
 	// MaybeFixedLengthStreamClass is a class for FixedLengthStream.
 	// * This class is only available in Cloudflare Workers.
@@ -57,19 +59,28 @@ func ArrayFrom(v js.Value) js.Value {
 }
 
 func AwaitPromise(promiseVal js.Value) (js.Value, error) {
-	resultCh := make(chan js.Value)
-	errCh := make(chan error)
+	return AwaitPromiseContext(context.Background(), promiseVal)
+}
+
+// AwaitPromiseContext is like AwaitPromise, but returns ctx.Err() as soon as
+// ctx is done instead of waiting for the promise to settle. It cannot stop
+// the underlying JavaScript operation by itself; callers that own it should
+// also abort it (e.g. via an AbortController).
+//
+// The result/error channels are buffered so the then/catch callbacks never
+// block (and leak their js.Func) when the caller has already given up.
+func AwaitPromiseContext(ctx context.Context, promiseVal js.Value) (js.Value, error) {
+	resultCh := make(chan js.Value, 1)
+	errCh := make(chan error, 1)
 	var then, catch js.Func
 	then = js.FuncOf(func(_ js.Value, args []js.Value) any {
 		defer then.Release()
-		result := args[0]
-		resultCh <- result
+		resultCh <- args[0]
 		return js.Undefined()
 	})
 	catch = js.FuncOf(func(_ js.Value, args []js.Value) any {
 		defer catch.Release()
-		result := args[0]
-		errCh <- fmt.Errorf("failed on promise: %s", errorString(result))
+		errCh <- fmt.Errorf("failed on promise: %s", errorString(args[0]))
 		return js.Undefined()
 	})
 	promiseVal.Call("then", then).Call("catch", catch)
@@ -78,6 +89,8 @@ func AwaitPromise(promiseVal js.Value) (js.Value, error) {
 		return result, nil
 	case err := <-errCh:
 		return js.Value{}, err
+	case <-ctx.Done():
+		return js.Value{}, ctx.Err()
 	}
 }
 
